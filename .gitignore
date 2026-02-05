@@ -1,0 +1,20 @@
+# ---- Python / Jupyter ----
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# ---- Virtual environments ----
+.venv/
+env/
+venv/
+
+# ---- macOS ----
+.DS_Store
+
+# ---- ATLAS lab specific ----
+parquet/
+output-parquet/
+*.tar
+
+# ---- VS Code ----
+.vscode/
