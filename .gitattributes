@@ -1,0 +1,12 @@
+# Normalize line endings for text files
+* text=auto
+
+# Jupyter notebooks should be treated as text
+*.ipynb text
+
+# Common binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
