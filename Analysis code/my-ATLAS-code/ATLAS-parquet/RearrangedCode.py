@@ -381,8 +381,10 @@ fig_ss_mass_after, _ = plot_stacked_hist(
 df_os_cutflow = cutflow_table(plot_OS, MASS_WINDOW, BEST_PTC, BEST_ETC, require_both=REQUIRE_BOTH_ISO)
 df_ss_cutflow = cutflow_table(plot_SS, MASS_WINDOW, BEST_PTC, BEST_ETC, require_both=REQUIRE_BOTH_ISO)
 
+'''
 print("\n=== OS cutflow ===")
 display(df_os_cutflow)
 
 print("\n=== SS cutflow ===")
 display(df_ss_cutflow)
+'''
