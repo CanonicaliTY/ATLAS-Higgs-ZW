@@ -1,0 +1,22 @@
+Channel: mu
+Fraction: 0.02
+Mass window: (66.0, 116.0)
+Isolation: ptcone<4.500, etcone<9.250, require_both=True
+
+OS cutflow:
+       Step     Data        Signal  Background        S/B  Data/MC
+   Baseline 570369.0 528405.637326 5143.182062 102.739050 1.069010
+Mass window 502352.0 493269.408136 1579.983659 312.199057 1.015161
+   Iso only 541549.0 525999.646566 5104.958906 103.036999 1.019665
+ Mass + Iso 493811.0 490975.304766 1567.288060 313.264241 1.002575
+
+SS cutflow:
+       Step   Data    Signal  Background      S/B   Data/MC
+   Baseline 3104.0 10.176157  328.044943 0.031021  9.177429
+Mass window  754.0  1.763342   71.767414 0.024570 10.254213
+   Iso only 1566.0 10.176157  322.146494 0.031589  4.712288
+ Mass + Iso  343.0  1.763342   68.158019 0.025871  4.905511
+
+Cross section:
+sigma = 2227.039 ± 3.187 (stat.) ± 14.547 (syst.) ± 37.860 (lumi.) pb
+      = 2.2270 ± 0.0032 ± 0.0145 ± 0.0379 nb

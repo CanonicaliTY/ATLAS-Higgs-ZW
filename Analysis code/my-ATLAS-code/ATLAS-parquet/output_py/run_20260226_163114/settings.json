@@ -1,0 +1,58 @@
+{
+  "LEPTONS": [
+    "mu"
+  ],
+  "FRACTION": 0.02,
+  "PT_MIN": 10.0,
+  "MASS_WINDOW": [
+    66.0,
+    116.0
+  ],
+  "REQUIRE_BOTH_ISO": true,
+  "ISO_SCAN": {
+    "PTCONE_RANGE": [
+      0.0,
+      10.0
+    ],
+    "PTCONE_STEP": 0.25,
+    "ETCONE_RANGE": [
+      0.0,
+      10.0
+    ],
+    "ETCONE_STEP": 0.25,
+    "OS_SIG_EFF_MIN": 0.995
+  },
+  "PLOTS": {
+    "LEADING_PT": {
+      "xmin": 0,
+      "xmax": 200,
+      "bins": 50,
+      "logy": true
+    },
+    "MASS_FULL": {
+      "xmin": 0,
+      "xmax": 200,
+      "bins": 120,
+      "logy": true
+    },
+    "MASS_ZOOM": {
+      "xmin": 60,
+      "xmax": 120,
+      "bins": 60,
+      "logy": true
+    }
+  },
+  "OUTPUT_DIR": "output_py",
+  "SAVE_PLOTS": true,
+  "SAVE_TABLES": true,
+  "SAVE_SCAN_TABLES": true,
+  "SAVE_JSON": true,
+  "MAKE_GROUP_FIGURES": true,
+  "AUTO_INSTALL": false,
+  "RUN_INSTALL_FROM_ENV_YML": false,
+  "USE_SCAN": true,
+  "FIXED_ISO": {
+    "ptcone_max": 4.5,
+    "etcone_max": 9.25
+  }
+}

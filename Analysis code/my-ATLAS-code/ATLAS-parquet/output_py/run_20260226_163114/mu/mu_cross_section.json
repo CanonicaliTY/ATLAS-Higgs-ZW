@@ -1,0 +1,63 @@
+{
+  "lepton": "mu",
+  "mass_window": [
+    66.0,
+    116.0
+  ],
+  "require_both_iso": true,
+  "best_iso": {
+    "ptcone_max": 4.5,
+    "etcone_max": 9.25
+  },
+  "nominal": {
+    "primary_signal": "Zmumu",
+    "N_selected": 493811.0,
+    "N_bkg": 1567.4613008956353,
+    "N_sig_data": 492243.5386991044,
+    "epsilon": 0.007223220158795735,
+    "sigma_pb": 2227.0386060401415,
+    "dsigma_stat_pb": 3.1872027511191616
+  },
+  "uncertainties_pb": {
+    "stat": 3.1872027511191616,
+    "syst": 14.546813541805477,
+    "lumi": 37.85965630268241
+  },
+  "uncertainties_nb": {
+    "stat": 0.0031872027511191618,
+    "syst": 0.014546813541805478,
+    "lumi": 0.03785965630268241
+  },
+  "sigma_pb": 2227.0386060401415,
+  "sigma_nb": 2.2270386060401415,
+  "syst_variations": [
+    {
+      "label": "ptcone -0.5",
+      "sigma_pb": 2225.229556895053
+    },
+    {
+      "label": "ptcone +0.5",
+      "sigma_pb": 2229.0701177303285
+    },
+    {
+      "label": "etcone -0.5",
+      "sigma_pb": 2227.1693719802083
+    },
+    {
+      "label": "etcone +0.5",
+      "sigma_pb": 2227.636648164644
+    },
+    {
+      "label": "mass tighter",
+      "sigma_pb": 2226.5532370805377
+    },
+    {
+      "label": "mass looser",
+      "sigma_pb": 2226.1968121702967
+    },
+    {
+      "label": "iso leading only",
+      "sigma_pb": 2241.585419581947
+    }
+  ]
+}

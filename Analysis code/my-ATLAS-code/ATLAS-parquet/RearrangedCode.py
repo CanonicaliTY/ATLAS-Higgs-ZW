@@ -30,6 +30,9 @@ Lab constants (from the lab script):
 """
 
 from __future__ import annotations
+from pathlib import Path
+import os
+os.chdir(Path(__file__).resolve().parent) # ensure relative paths work correctly
 
 # ============================================================
 # 0) SETTINGS (edit here only) — no user input at runtime
