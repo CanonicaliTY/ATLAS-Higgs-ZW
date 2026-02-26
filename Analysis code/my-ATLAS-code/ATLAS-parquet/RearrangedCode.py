@@ -41,7 +41,7 @@ os.chdir(Path(__file__).resolve().parent) # ensure relative paths work correctly
 SETTINGS = {
     # Run which channel(s)?
     #   ("mu",) for muons, ("e",) for electrons, ("mu","e") for both
-    "LEPTONS": ("mu",),
+    "LEPTONS": ("e",),
 
     # Data loading
     "FRACTION": 0.02,      # fraction of parquet files to process (<=1)
@@ -57,7 +57,7 @@ SETTINGS = {
         "PTCONE_STEP":  0.25,          # GeV
         "ETCONE_RANGE": (0.0, 10.0),   # GeV
         "ETCONE_STEP":  0.25,          # GeV
-        "OS_SIG_EFF_MIN": 0.995,       # keep at least this much OS signal (relative to mass-only)
+        "OS_SIG_EFF_MIN": 0.98,       # keep at least this much OS signal (relative to mass-only) **0.995 for mu and 0.98 for e**.
     },
 
     # Plot styling & ranges
