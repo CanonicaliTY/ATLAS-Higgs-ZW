@@ -72,7 +72,7 @@ SETTINGS = {
         "BUILD_FRACTION": 1.0,
 
         # Where the tighter parquet directories should live
-        "ROOT_DIR": "../../output-parquet",
+        "ROOT_DIR": "../../tight-parquet",
 
         # If not None, use this exact tag instead of the auto-generated one
         "TAG": None,
@@ -89,6 +89,7 @@ SETTINGS = {
         # Keep only the fields you actually need downstream.
         # This is what makes the written parquet genuinely "tight".
         "KEEP_FIELDS": [
+            "lep_n",
             "lep_pt",
             "lep_ptvarcone30",
             "lep_topoetcone20",
