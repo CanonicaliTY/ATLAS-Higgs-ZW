@@ -15,6 +15,7 @@ venv/
 parquet/
 output-parquet/
 *.tar
+tight-parquet/
 
 # ---- VS Code ----
 .vscode/
