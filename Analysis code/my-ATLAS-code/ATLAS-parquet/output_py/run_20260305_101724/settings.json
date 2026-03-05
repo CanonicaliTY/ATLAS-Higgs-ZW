@@ -1,6 +1,6 @@
 {
   "LEPTONS": [
-    "e"
+    "mu"
   ],
   "FRACTION": 0.02,
   "PT_MIN": 10.0,
@@ -20,7 +20,7 @@
       10.0
     ],
     "ETCONE_STEP": 0.25,
-    "OS_SIG_EFF_MIN": 0.98
+    "OS_SIG_EFF_MIN": 0.995
   },
   "PLOTS": {
     "LEADING_PT": {
@@ -37,7 +37,7 @@
     },
     "MASS_ZOOM": {
       "xmin": 60,
-      "xmax": 120,
+      "xmax": 200,
       "bins": 60,
       "logy": true
     }
