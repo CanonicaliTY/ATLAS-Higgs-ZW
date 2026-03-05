@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# v1.2 update: added support for the mediumID consideration.
 
 """
 ATLAS Open Data (Manchester 3rd year lab): Z → ℓℓ dilepton analysis runner
