@@ -86,8 +86,10 @@ SETTINGS = {
         #   "mass_iso" : baseline + mass window + fixed isolation  (only valid with USE_SCAN=False)
         "STAGE": "baseline",
 
-        # Keep only the fields you actually need downstream.
-        # This is what makes the written parquet genuinely "tight".
+        # Fields you explicitly want in the written tight parquet.
+        # The script will automatically add any extra fields that backend/build
+        # logic still needs (e.g. lep_eta, lep_phi, triggers, etc.), so you do
+        # NOT need to hand-add missing variables one by one.
         "KEEP_FIELDS": [
             "lep_pt",
             "lep_ptvarcone30",
@@ -103,7 +105,7 @@ SETTINGS = {
     "PLOTS": {
         "LEADING_PT": {"xmin": 0, "xmax": 200, "bins": 50, "logy": True},
         "MASS_FULL":  {"xmin": 0, "xmax": 200, "bins": 120, "logy": True},
-        "MASS_ZOOM":  {"xmin": 60, "xmax": 120, "bins": 60, "logy": True},  # change if the mass window changed before.
+        "MASS_ZOOM":  {"xmin": 60, "xmax": 120, "bins": 60, "logy": True},
     },
 
     # Output
@@ -122,6 +124,18 @@ SETTINGS = {
     # If you want to force a fixed isolation cut (no scan), set USE_SCAN=False
     "USE_SCAN": True,
     "FIXED_ISO": {"ptcone_max": 4.5, "etcone_max": 9.25},  # used only if USE_SCAN=False
+
+    # Optional Medium-ID consideration
+    # Set APPLY_MEDIUM_ID=True to compare against a tighter selection that applies
+    # lep_isMediumID (or the first available candidate field below) wherever allowed.
+    #
+    # MEDIUM_ID_SCOPE options:
+    #   "mc_only_if_available" : apply only to MC samples if the field exists
+    #                            (recommended for the comparison your lecturer mentioned)
+    #   "available_samples"    : apply to any sample where the field exists
+    "APPLY_MEDIUM_ID": False,
+    "MEDIUM_ID_SCOPE": "mc_only_if_available",
+    "MEDIUM_ID_FIELD_CANDIDATES": ["lep_isMediumID"],
 }
 
 
@@ -255,14 +269,34 @@ ISO_VARS = [
 # 4) Core selection / utilities (from your rearranged notebook)
 # ============================================================
 
-def base_dilepton(data: ak.Array, lepton: str, pt_min: float) -> ak.Array:
-    """Baseline: exactly 2 leptons, correct flavour, pT thresholds, trigger, compute mass."""
+def base_dilepton(data: ak.Array,
+                  lepton: str,
+                  pt_min: float,
+                  medium_id_field: str | None = None) -> ak.Array:
+    """
+    Baseline:
+      - exactly 2 leptons
+      - correct flavour
+      - pT thresholds
+      - trigger
+      - optional Medium-ID requirement (both leptons)
+      - compute m_ll
+    """
     cfg = CHANNELS[lepton]
 
     data = data[data["lep_n"] == 2]
     data = data[(data["lep_type"][:, 0] + data["lep_type"][:, 1]) == cfg["type_sum"]]
     data = data[(data["lep_pt"][:, 0] > pt_min) & (data["lep_pt"][:, 1] > pt_min)]
     data = data[data[cfg["trigger_field"]]]
+
+    if medium_id_field is not None:
+        if medium_id_field in data.fields:
+            mid = ak.values_astype(data[medium_id_field], np.bool_)
+            data = data[mid[:, 0] & mid[:, 1]]
+        else:
+            # Fail-safe: if a field was requested but is not present in this sample,
+            # simply skip the Medium-ID cut for that sample.
+            pass
 
     p4 = vector.zip({
         "pt":  data["lep_pt"],
@@ -274,12 +308,15 @@ def base_dilepton(data: ak.Array, lepton: str, pt_min: float) -> ak.Array:
     return data
 
 
-def make_cut_function(lepton: str, sign: str, pt_min: float):
+def make_cut_function(lepton: str,
+                      sign: str,
+                      pt_min: float,
+                      medium_id_field: str | None = None):
     """Return a cut_function(data)->data suitable for analysis_parquet()."""
     sign = sign.upper().strip()
 
     def _cut(data: ak.Array) -> ak.Array:
-        d = base_dilepton(data, lepton=lepton, pt_min=pt_min)
+        d = base_dilepton(data, lepton=lepton, pt_min=pt_min, medium_id_field=medium_id_field)
         qprod = d["lep_charge"][:, 0] * d["lep_charge"][:, 1]
         if sign == "OS":
             return d[qprod == -1]
@@ -297,6 +334,60 @@ def infer_suffix(d: dict, data_code: str = "2to4lep") -> str:
             return k.split(data_code + "_", 1)[1]
     raise KeyError(f"Cannot infer suffix: no {data_code}_* key found.")
 
+
+_VALID_VAR_CACHE: dict[str, set[str]] = {}
+
+
+def sample_is_data(sample: str) -> bool:
+    return sample in {"2to4lep", "GamGam"}
+
+
+def valid_vars_for_sample(sample: str, backend: dict) -> set[str]:
+    if sample not in _VALID_VAR_CACHE:
+        _VALID_VAR_CACHE[sample] = set(backend["get_valid_variables"](sample))
+    return _VALID_VAR_CACHE[sample]
+
+
+def medium_id_decision(sample: str, backend: dict) -> dict:
+    """
+    Decide whether to apply Medium ID to this sample, and if so which field to use.
+
+    Returns a record with:
+      sample, applied, field, reason
+    """
+    if not SETTINGS["APPLY_MEDIUM_ID"]:
+        return {
+            "sample": sample,
+            "applied": False,
+            "field": None,
+            "reason": "APPLY_MEDIUM_ID=False",
+        }
+
+    scope = SETTINGS["MEDIUM_ID_SCOPE"]
+    if scope == "mc_only_if_available" and sample_is_data(sample):
+        return {
+            "sample": sample,
+            "applied": False,
+            "field": None,
+            "reason": "data sample skipped by MEDIUM_ID_SCOPE",
+        }
+
+    available = valid_vars_for_sample(sample, backend)
+    for cand in SETTINGS["MEDIUM_ID_FIELD_CANDIDATES"]:
+        if cand in available:
+            return {
+                "sample": sample,
+                "applied": True,
+                "field": cand,
+                "reason": "field available",
+            }
+
+    return {
+        "sample": sample,
+        "applied": False,
+        "field": None,
+        "reason": "no candidate Medium-ID field available",
+    }
 
 
 def iso_eff_threshold_for(lepton: str) -> float:
@@ -330,6 +421,12 @@ def _slim_for_tight(data: ak.Array, keep_fields: list[str]) -> ak.Array:
     """
     Keep only the fields that are genuinely needed downstream.
     Also preserve the MC weight field if present.
+
+    Important backend note:
+    when using analysis_parquet(..., write_parquet=True), the returned array from
+    cut_function still needs to contain every field that backend parsing expects.
+    We therefore expand the requested keep_fields elsewhere to include the full
+    set of build-time required fields. This function itself just enforces the final list.
     """
     keep = [f for f in keep_fields if f in data.fields]
     for wname in ("weight", "totalWeight"):
@@ -343,6 +440,41 @@ def _slim_for_tight(data: ak.Array, keep_fields: list[str]) -> ak.Array:
     return ak.zip({f: data[f] for f in keep}, depth_limit=1)
 
 
+def required_keep_fields_for_tight(lepton: str,
+                                   extra_build_vars: list[str] | None = None) -> list[str]:
+    """
+    Fields that MUST survive the cut_function when writing tight parquet.
+
+    Why this exists:
+    backend.analysis_parquet still expects the post-cut event record to contain
+    all variables it parsed for that pass. If we drop one too early while writing
+    parquet, backend raises errors like:
+        Variable 'lep_eta' not found
+
+    For the current workflow, the safe build-time superset is:
+      BASE_VARS + ISO_VARS + ['mass'] + user KEEP_FIELDS
+    plus whichever MC weight field is present (added later in _slim_for_tight).
+    """
+    required = list(BASE_VARS) + list(ISO_VARS) + ["mass"]
+    if extra_build_vars:
+        required += list(extra_build_vars)
+
+    # If you want to be a bit more explicit by channel, you could keep only the
+    # trigger used by this lepton channel. For simplicity and readability we keep
+    # both trigM and trigE via BASE_VARS.
+
+    requested = list(SETTINGS["TIGHT_PARQUET"]["KEEP_FIELDS"])
+
+    # preserve order while removing duplicates
+    out = []
+    seen = set()
+    for f in required + requested:
+        if f not in seen:
+            out.append(f)
+            seen.add(f)
+    return out
+
+
 def make_tight_cut_function(lepton: str,
                             sign: str,
                             pt_min: float,
@@ -351,7 +483,8 @@ def make_tight_cut_function(lepton: str,
                             ptcone_max: float,
                             etcone_max: float,
                             require_both: bool,
-                            keep_fields: list[str]):
+                            keep_fields: list[str],
+                            medium_id_field: str | None = None):
     """
     Selection used when WRITING tight parquet files.
     This is where we do the heavy raw-data pass once, then store only a slimmed-down event record.
@@ -360,7 +493,7 @@ def make_tight_cut_function(lepton: str,
     stage_kwargs = _tight_stage_kwargs(stage, mass_window, ptcone_max, etcone_max)
 
     def _cut(data: ak.Array) -> ak.Array:
-        d = base_dilepton(data, lepton=lepton, pt_min=pt_min)
+        d = base_dilepton(data, lepton=lepton, pt_min=pt_min, medium_id_field=medium_id_field)
         qprod = d["lep_charge"][:, 0] * d["lep_charge"][:, 1]
         if sign == "OS":
             d = d[qprod == -1]
@@ -400,6 +533,10 @@ def tight_tag(lepton: str) -> str:
     if stage in ("mass", "mass_iso"):
         tag += f"_m{str(lo).replace('.', 'p')}_{str(hi).replace('.', 'p')}"
 
+    if SETTINGS["APPLY_MEDIUM_ID"]:
+        scope = SETTINGS["MEDIUM_ID_SCOPE"]
+        tag += "_midMC" if scope == "mc_only_if_available" else "_midAvail"
+
     if stage == "mass_iso" and not SETTINGS["USE_SCAN"]:
         ptc = SETTINGS["FIXED_ISO"]["ptcone_max"]
         etc = SETTINGS["FIXED_ISO"]["etcone_max"]
@@ -429,7 +566,11 @@ def tight_ready(root: Path, samples: list[str]) -> bool:
     return True
 
 
-def write_tight_metadata(root: Path, lepton: str, sign: str, samples: list[str]) -> None:
+def write_tight_metadata(root: Path,
+                         lepton: str,
+                         sign: str,
+                         samples: list[str],
+                         medium_notes: list[dict] | None = None) -> None:
     if not SETTINGS["TIGHT_PARQUET"]["WRITE_METADATA"]:
         return
 
@@ -446,6 +587,10 @@ def write_tight_metadata(root: Path, lepton: str, sign: str, samples: list[str])
         "fixed_iso": SETTINGS["FIXED_ISO"],
         "tight_keep_fields": SETTINGS["TIGHT_PARQUET"]["KEEP_FIELDS"],
         "build_fraction": SETTINGS["TIGHT_PARQUET"]["BUILD_FRACTION"],
+        "apply_medium_id": SETTINGS["APPLY_MEDIUM_ID"],
+        "medium_id_scope": SETTINGS["MEDIUM_ID_SCOPE"],
+        "medium_id_field_candidates": SETTINGS["MEDIUM_ID_FIELD_CANDIDATES"],
+        "medium_id_notes": medium_notes or [],
     }
     root.mkdir(parents=True, exist_ok=True)
     with open(root / "_tight_metadata.json", "w", encoding="utf-8") as f:
@@ -476,13 +621,81 @@ def available_parquet_fields(read_directory: Path) -> list[str]:
 def read_vars_for_tight_directory(read_directory: Path) -> list[str]:
     """
     Pick the read_variables for a tight parquet directory based on what was actually written.
+
+    Even if the user keeps the explicit KEEP_FIELDS list very short, we still need a small
+    downstream-safe set to support:
+      - before plots (lep_pt[0], mass)
+      - isolation scan / final cuts (lep_ptvarcone30, lep_topoetcone20)
     """
     available = available_parquet_fields(read_directory)
+
     wanted = list(SETTINGS["TIGHT_PARQUET"]["KEEP_FIELDS"])
+    for must_have in ["lep_pt", "mass", "lep_ptvarcone30", "lep_topoetcone20"]:
+        if must_have not in wanted:
+            wanted.append(must_have)
+
     for wname in ("weight", "totalWeight"):
         if wname not in wanted:
             wanted.append(wname)
+
     return [v for v in wanted if v in available]
+
+
+def load_original_samples(lepton: str,
+                          sign: str,
+                          cfg: dict,
+                          backend: dict,
+                          fraction: float) -> tuple[dict, pd.DataFrame]:
+    """
+    Load one sign (OS or SS) directly from the ORIGINAL ATLAS parquet.
+
+    We process each sample separately rather than using one single read_variables list
+    for all samples. This is what makes APPLY_MEDIUM_ID robust:
+      - if lep_isMediumID exists for a given MC sample, we read it and apply it
+      - if it does not exist (e.g. 2to4lep data), we simply skip it for that sample
+    """
+    validate_read_variables = backend["validate_read_variables"]
+    analysis_parquet = backend["analysis_parquet"]
+
+    merged: dict = {}
+    medium_rows: list[dict] = []
+
+    for sample in cfg["string_codes"]:
+        mid_info = medium_id_decision(sample, backend)
+        mid_field = mid_info["field"] if mid_info["applied"] else None
+
+        requested = list(BASE_VARS) + list(ISO_VARS)
+        if mid_field is not None and mid_field not in requested:
+            requested.append(mid_field)
+
+        read_vars = validate_read_variables([sample], requested)
+        cut_fn = make_cut_function(
+            lepton=lepton,
+            sign=sign,
+            pt_min=SETTINGS["PT_MIN"],
+            medium_id_field=mid_field,
+        )
+
+        out = analysis_parquet(
+            read_vars,
+            [sample],
+            fraction=fraction,
+            cut_function=cut_fn,
+            write_parquet=False,
+            output_directory=None,
+            return_output=True,
+        )
+        merged.update(out)
+
+        medium_rows.append({
+            "sample": sample,
+            "applied": bool(mid_info["applied"]),
+            "field": mid_info["field"],
+            "reason": mid_info["reason"],
+            "requested_read_vars": ",".join(read_vars),
+        })
+
+    return merged, pd.DataFrame(medium_rows)
 
 
 def ensure_tight_parquet(lepton: str, sign: str, cfg: dict, backend: dict) -> Path:
@@ -492,11 +705,14 @@ def ensure_tight_parquet(lepton: str, sign: str, cfg: dict, backend: dict) -> Pa
     """
     root = tight_root(lepton, sign)
 
-    if tight_ready(root, cfg["string_codes"]) and not SETTINGS["TIGHT_PARQUET"]["FORCE_REBUILD"]:
+    ready = tight_ready(root, cfg["string_codes"])
+    if ready and not SETTINGS["TIGHT_PARQUET"]["FORCE_REBUILD"]:
         print(f"[{lepton}] reusing tight parquet: {root}")
         return root
 
-    if root.exists() and SETTINGS["TIGHT_PARQUET"]["FORCE_REBUILD"]:
+    # If a previous build was interrupted, backend may have left a partial directory
+    # tree behind. Remove it before rebuilding to avoid FileExistsError.
+    if root.exists() and (SETTINGS["TIGHT_PARQUET"]["FORCE_REBUILD"] or not ready):
         shutil.rmtree(root)
 
     stage = SETTINGS["TIGHT_PARQUET"]["STAGE"]
@@ -509,42 +725,63 @@ def ensure_tight_parquet(lepton: str, sign: str, cfg: dict, backend: dict) -> Pa
     validate_read_variables = backend["validate_read_variables"]
     analysis_parquet = backend["analysis_parquet"]
 
-    # Build from the original ATLAS parquet using only the variables needed for the cut function.
-    build_read_vars = validate_read_variables(cfg["string_codes"], BASE_VARS + ISO_VARS)
+    build_ptc = float(SETTINGS["FIXED_ISO"]["ptcone_max"])
+    build_etc = float(SETTINGS["FIXED_ISO"]["etcone_max"])
 
-    if SETTINGS["USE_SCAN"]:
-        build_ptc = float(SETTINGS["FIXED_ISO"]["ptcone_max"])
-        build_etc = float(SETTINGS["FIXED_ISO"]["etcone_max"])
-    else:
-        build_ptc = float(SETTINGS["FIXED_ISO"]["ptcone_max"])
-        build_etc = float(SETTINGS["FIXED_ISO"]["etcone_max"])
-
-    cut_fn = make_tight_cut_function(
-        lepton=lepton,
-        sign=sign,
-        pt_min=SETTINGS["PT_MIN"],
-        stage=stage,
-        mass_window=SETTINGS["MASS_WINDOW"],
-        ptcone_max=build_ptc,
-        etcone_max=build_etc,
-        require_both=SETTINGS["REQUIRE_BOTH_ISO"],
-        keep_fields=SETTINGS["TIGHT_PARQUET"]["KEEP_FIELDS"],
-    )
+    medium_rows: list[dict] = []
 
     print(f"[{lepton}] building tight parquet ({sign}) -> {root}")
-    analysis_parquet(
-        build_read_vars,
-        cfg["string_codes"],
-        fraction=SETTINGS["TIGHT_PARQUET"]["BUILD_FRACTION"],
-        cut_function=cut_fn,
-        write_parquet=True,
-        output_directory=str(root),
-        return_output=False,
-    )
+    for sample in cfg["string_codes"]:
+        mid_info = medium_id_decision(sample, backend)
+        mid_field = mid_info["field"] if mid_info["applied"] else None
 
-    write_tight_metadata(root, lepton, sign, cfg["string_codes"])
+        requested = list(BASE_VARS) + list(ISO_VARS)
+        if mid_field is not None and mid_field not in requested:
+            requested.append(mid_field)
+
+        build_read_vars = validate_read_variables([sample], requested)
+        keep_fields_for_write = required_keep_fields_for_tight(
+            lepton,
+            extra_build_vars=[mid_field] if mid_field is not None else None,
+        )
+
+        cut_fn = make_tight_cut_function(
+            lepton=lepton,
+            sign=sign,
+            pt_min=SETTINGS["PT_MIN"],
+            stage=stage,
+            mass_window=SETTINGS["MASS_WINDOW"],
+            ptcone_max=build_ptc,
+            etcone_max=build_etc,
+            require_both=SETTINGS["REQUIRE_BOTH_ISO"],
+            keep_fields=keep_fields_for_write,
+            medium_id_field=mid_field,
+        )
+
+        analysis_parquet(
+            build_read_vars,
+            [sample],
+            fraction=SETTINGS["TIGHT_PARQUET"]["BUILD_FRACTION"],
+            cut_function=cut_fn,
+            write_parquet=True,
+            output_directory=str(root),
+            return_output=False,
+        )
+
+        medium_rows.append({
+            "sample": sample,
+            "applied": bool(mid_info["applied"]),
+            "field": mid_info["field"],
+            "reason": mid_info["reason"],
+            "requested_read_vars": ",".join(build_read_vars),
+        })
+
+    write_tight_metadata(root, lepton, sign, cfg["string_codes"], medium_notes=medium_rows)
+
+    # Save a plain CSV too for quick inspection
+    pd.DataFrame(medium_rows).to_csv(root / "_medium_id_usage.csv", index=False)
+
     return root
-
 
 def build_plot_dict(d: dict, suffix: str, lepton: str) -> dict:
     """
@@ -967,12 +1204,29 @@ def run_channel(lepton: str, backend: dict, outdir: Path) -> None:
             return_output=True,
         )
     else:
-        read_vars = validate_read_variables(cfg["string_codes"], BASE_VARS + ISO_VARS)
-        cut_OS = make_cut_function(lepton=lepton, sign="OS", pt_min=SETTINGS["PT_MIN"])
-        cut_SS = make_cut_function(lepton=lepton, sign="SS", pt_min=SETTINGS["PT_MIN"])
+        data_OS, medium_os = load_original_samples(
+            lepton=lepton,
+            sign="OS",
+            cfg=cfg,
+            backend=backend,
+            fraction=SETTINGS["FRACTION"],
+        )
+        data_SS, medium_ss = load_original_samples(
+            lepton=lepton,
+            sign="SS",
+            cfg=cfg,
+            backend=backend,
+            fraction=SETTINGS["FRACTION"],
+        )
 
-        data_OS = analysis_parquet(read_vars, cfg["string_codes"], fraction=SETTINGS["FRACTION"], cut_function=cut_OS)
-        data_SS = analysis_parquet(read_vars, cfg["string_codes"], fraction=SETTINGS["FRACTION"], cut_function=cut_SS)
+        if SETTINGS["SAVE_TABLES"]:
+            medium_os.to_csv(outdir / f"{lepton}_mediumID_usage_OS.csv", index=False)
+            medium_ss.to_csv(outdir / f"{lepton}_mediumID_usage_SS.csv", index=False)
+
+        print(f"[{lepton}] Medium-ID usage (OS):")
+        print(medium_os.to_string(index=False))
+        print(f"\n[{lepton}] Medium-ID usage (SS):")
+        print(medium_ss.to_string(index=False))
 
     suffix = infer_suffix(data_OS, "2to4lep")
     print(f"[{lepton}] inferred suffix = {suffix}")
@@ -1136,6 +1390,8 @@ def run_channel(lepton: str, backend: dict, outdir: Path) -> None:
         "mass_window": mass_window,
         "require_both_iso": require_both,
         "best_iso": {"ptcone_max": best_ptc, "etcone_max": best_etc},
+        "apply_medium_id": SETTINGS["APPLY_MEDIUM_ID"],
+        "medium_id_scope": SETTINGS["MEDIUM_ID_SCOPE"],
         "nominal": nom,
         "uncertainties_pb": {"stat": ds_stat_pb, "syst": syst_pb, "lumi": ds_lumi_pb},
         "uncertainties_nb": {"stat": ds_stat_pb/1000.0, "syst": syst_pb/1000.0, "lumi": ds_lumi_pb/1000.0},
@@ -1163,7 +1419,8 @@ def run_channel(lepton: str, backend: dict, outdir: Path) -> None:
             f.write(f"Tight stage: {SETTINGS['TIGHT_PARQUET']['STAGE']}\n")
             f.write(f"Tight tag: {tight_tag(lepton)}\n")
         f.write(f"Mass window: {mass_window}\n")
-        f.write(f"Isolation: ptcone<{best_ptc:.3f}, etcone<{best_etc:.3f}, require_both={require_both}\n\n")
+        f.write(f"Isolation: ptcone<{best_ptc:.3f}, etcone<{best_etc:.3f}, require_both={require_both}\n")
+        f.write(f"APPLY_MEDIUM_ID: {SETTINGS['APPLY_MEDIUM_ID']}  |  MEDIUM_ID_SCOPE: {SETTINGS['MEDIUM_ID_SCOPE']}\n\n")
         f.write("OS cutflow:\n")
         f.write(df_os.to_string(index=False))
         f.write("\n\nSS cutflow:\n")
