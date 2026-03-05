@@ -103,7 +103,7 @@ SETTINGS = {
     "PLOTS": {
         "LEADING_PT": {"xmin": 0, "xmax": 200, "bins": 50, "logy": True},
         "MASS_FULL":  {"xmin": 0, "xmax": 200, "bins": 120, "logy": True},
-        "MASS_ZOOM":  {"xmin": 60, "xmax": 120, "bins": 60, "logy": True},
+        "MASS_ZOOM":  {"xmin": 60, "xmax": 120, "bins": 60, "logy": True},  # change if the mass window changed before.
     },
 
     # Output
