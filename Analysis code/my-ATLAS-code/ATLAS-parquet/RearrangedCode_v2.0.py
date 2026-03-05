@@ -227,6 +227,10 @@ from hist import Hist  # noqa: F401
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator  # noqa: F401
 import pyarrow.parquet as pq
+try:
+    from tqdm.auto import tqdm
+except Exception:  # pragma: no cover
+    tqdm = None
 
 def _import_backend():
     here = Path(__file__).resolve()
@@ -995,7 +999,8 @@ def scan_isolation(plot_OS: dict, plot_SS: dict,
                    require_both: bool,
                    ptcone_range: tuple[float, float], ptcone_step: float,
                    etcone_range: tuple[float, float], etcone_step: float,
-                   os_sig_eff_min: float) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
+                   os_sig_eff_min: float,
+                   progress_label: str | None = None) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
     os_ref = select_plotdict(plot_OS, mass_window=mass_window, require_both=require_both)
     ss_ref = select_plotdict(plot_SS, mass_window=mass_window, require_both=require_both)
 
@@ -1004,24 +1009,32 @@ def scan_isolation(plot_OS: dict, plot_SS: dict,
 
     pt_vals = np.arange(ptcone_range[0], ptcone_range[1] + 1e-12, ptcone_step)
     et_vals = np.arange(etcone_range[0], etcone_range[1] + 1e-12, etcone_step)
+    total_points = int(len(pt_vals) * len(et_vals))
+
+    tag = progress_label if progress_label else "iso"
+    print(f"[{tag}] isolation scan starts: {len(pt_vals)} x {len(et_vals)} = {total_points} points")
+
+    # Reuse mass-window-selected dictionaries; inside scan we only apply isolation cuts.
+    # This avoids re-applying the same mass cut at every scan point.
+    os_mass = os_ref
+    ss_mass = ss_ref
 
     rows = []
-    for ptc in pt_vals:
-        for etc in et_vals:
-            os_sel = select_plotdict(plot_OS, mass_window=mass_window,
-                                     ptcone_max=float(ptc), etcone_max=float(etc),
-                                     require_both=require_both)
-            ss_sel = select_plotdict(plot_SS, mass_window=mass_window,
-                                     ptcone_max=float(ptc), etcone_max=float(etc),
-                                     require_both=require_both)
+    iterator = ((float(ptc), float(etc)) for ptc in pt_vals for etc in et_vals)
+    if tqdm is not None:
+        iterator = tqdm(iterator, total=total_points, desc=f"{tag} iso scan", unit="pt")
 
-            _, os_sig, _, os_sb, os_dmc = summarize(os_sel)
-            ss_data, _, _, _, _ = summarize(ss_sel)
+    for ptc, etc in iterator:
+        os_sel = select_plotdict(os_mass, ptcone_max=ptc, etcone_max=etc, require_both=require_both)
+        ss_sel = select_plotdict(ss_mass, ptcone_max=ptc, etcone_max=etc, require_both=require_both)
 
-            os_sig_eff = (os_sig / os_sig_ref) if os_sig_ref > 0 else float("nan")
-            ss_rej = 1.0 - (ss_data / ss_data_ref) if ss_data_ref > 0 else float("nan")
+        _, os_sig, _, os_sb, os_dmc = summarize(os_sel)
+        ss_data, _, _, _, _ = summarize(ss_sel)
 
-            rows.append([float(ptc), float(etc), os_sig_eff, ss_rej, os_dmc, os_sb, ss_data])
+        os_sig_eff = (os_sig / os_sig_ref) if os_sig_ref > 0 else float("nan")
+        ss_rej = 1.0 - (ss_data / ss_data_ref) if ss_data_ref > 0 else float("nan")
+
+        rows.append([ptc, etc, os_sig_eff, ss_rej, os_dmc, os_sb, ss_data])
 
     df_scan = pd.DataFrame(
         rows,
@@ -1387,6 +1400,7 @@ def run_channel(lepton: str, backend: dict, outdir: Path) -> None:
             etcone_range=scan_cfg["ETCONE_RANGE"],
             etcone_step=scan_cfg["ETCONE_STEP"],
             os_sig_eff_min=eff_min,
+            progress_label=lepton,
         )
         best_ptc = float(best["ptcone_max"])
         best_etc = float(best["etcone_max"])
