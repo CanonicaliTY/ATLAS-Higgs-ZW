@@ -1,0 +1,19 @@
+[mu] best_ptcone = 4.5000
+[mu] best_etcone = 9.2500
+
+OS cutflow:
+       Step       Data       Signal    Background        S/B  Data/MC
+   Baseline 29597341.0 2.633897e+07 258351.489337 101.950126 1.112794
+Mass window 26266156.0 2.456177e+07  77841.945497 315.533802 1.066014
+   Iso only 28291988.0 2.620903e+07 256428.405497 102.208002 1.069015
+ Mass + Iso 25816237.0 2.443804e+07  77183.440591 316.622890 1.053069
+
+SS cutflow:
+       Step     Data     Signal  Background      S/B   Data/MC
+   Baseline 153341.0 417.560480 5433.832889 0.076845 26.205895
+Mass window  36914.0 128.781854 1459.752869 0.088222 23.237767
+   Iso only  81875.0 417.683611 5295.083413 0.078881 14.331934
+ Mass + Iso  18558.0 128.369738 1401.556206 0.091591 12.129999
+
+Nominal cross section:
+sigma = 2339.556 ± 0.463 (stat.) ± 14.897 (syst.) ± 39.772 (lumi.) pb

@@ -50,12 +50,12 @@ SETTINGS = {
     "REQUIRE_BOTH_ISO": True,
 
     # Isolation scan
-    "USE_SCAN": True,
+    "USE_SCAN": False,
     "ISO_SCAN": {
         "PTCONE_RANGE": (0.0, 10.0),
-        "PTCONE_STEP": 0.25,
+        "PTCONE_STEP": 1,  # defaults to 0.25
         "ETCONE_RANGE": (0.0, 20.0),
-        "ETCONE_STEP": 0.25,
+        "ETCONE_STEP": 1,  # defaults to 0.25
         # can be a float or a dict {"mu": ..., "e": ...}
         "OS_SIG_EFF_MIN": {"mu": 0.995, "e": 0.98},
     },
@@ -64,11 +64,11 @@ SETTINGS = {
 
     # Optional Medium ID consideration
     "MEDIUM_ID": {
-        "APPLY": False,
+        "APPLY": True,  # whether to apply a Medium ID requirement at all
         # "mc_only_if_available"   : apply to MC only, if field exists
         # "if_available_all"       : apply to data/MC whenever field exists
         # "disabled"               : never apply
-        "SCOPE": "mc_only_if_available",
+        "SCOPE": "if_available_all",
         "FIELD_CANDIDATES": ["lep_isMediumID"],
     },
 
@@ -131,7 +131,7 @@ SETTINGS = {
 
         # if not None, also compute a sigma variant with this additional estimate applied:
         # None / "wrong_flavour" / "wrong_charge" / "both_wrong" / "avg3"
-        "APPLY_METHOD": None,
+        "APPLY_METHOD": "wrong_charge",
 
         # combine with the main MC background as an *additional* poorly-modelled contribution
         "ADD_TO_MC_BACKGROUND": True,

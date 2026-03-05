@@ -1,0 +1,107 @@
+{
+  "LEPTONS": [
+    "mu"
+  ],
+  "FRACTION": 1.0,
+  "PT_MIN": 10.0,
+  "MASS_WINDOW": [
+    66.0,
+    116.0
+  ],
+  "REQUIRE_BOTH_ISO": true,
+  "USE_SCAN": false,
+  "ISO_SCAN": {
+    "PTCONE_RANGE": [
+      0.0,
+      10.0
+    ],
+    "PTCONE_STEP": 0.25,
+    "ETCONE_RANGE": [
+      0.0,
+      20.0
+    ],
+    "ETCONE_STEP": 0.25,
+    "OS_SIG_EFF_MIN": {
+      "mu": 0.995,
+      "e": 0.98
+    }
+  },
+  "FIXED_ISO": {
+    "ptcone_max": 4.5,
+    "etcone_max": 9.25
+  },
+  "MEDIUM_ID": {
+    "APPLY": false,
+    "SCOPE": "mc_only_if_available",
+    "FIELD_CANDIDATES": [
+      "lep_isMediumID"
+    ]
+  },
+  "USE_TIGHT_PARQUET": true,
+  "TIGHT_PARQUET": {
+    "BUILD_FRACTION": 1.0,
+    "FORCE_REBUILD": false,
+    "ROOT_DIR": "../../tight-parquet",
+    "MAIN_TAG": null,
+    "CONTROL_TAG": null,
+    "MAIN_STAGE": "baseline",
+    "MAIN_KEEP_FIELDS": [
+      "lep_pt",
+      "lep_ptvarcone30",
+      "lep_topoetcone20",
+      "mass",
+      "charge_product"
+    ],
+    "CONTROL_KEEP_FIELDS": [
+      "lep_pt",
+      "lep_type",
+      "lep_charge",
+      "lep_ptvarcone30",
+      "lep_topoetcone20",
+      "mass",
+      "charge_product"
+    ],
+    "WRITE_METADATA": true
+  },
+  "ADDITIONAL_BBAR": {
+    "ENABLED": false,
+    "CONTROL_TRIGGER_MODE": "or",
+    "TRANSFER_FACTORS": {
+      "wrong_flavour": 1.0,
+      "wrong_charge": 1.0,
+      "both_wrong": 1.0
+    },
+    "APPLY_METHOD": null,
+    "ADD_TO_MC_BACKGROUND": true,
+    "SAVE_TABLES": true,
+    "SAVE_PLOTS": true
+  },
+  "PLOTS": {
+    "LEADING_PT": {
+      "xmin": 0,
+      "xmax": 200,
+      "bins": 50,
+      "logy": true
+    },
+    "MASS_FULL": {
+      "xmin": 0,
+      "xmax": 200,
+      "bins": 120,
+      "logy": true
+    },
+    "MASS_ZOOM": {
+      "xmin": 60,
+      "xmax": 120,
+      "bins": 60,
+      "logy": true
+    }
+  },
+  "OUTPUT_DIR": "output_py",
+  "SAVE_PLOTS": true,
+  "SAVE_TABLES": true,
+  "SAVE_JSON": true,
+  "SAVE_SCAN_TABLES": true,
+  "MAKE_GROUP_FIGURES": true,
+  "AUTO_INSTALL": false,
+  "RUN_INSTALL_FROM_ENV_YML": false
+}
