@@ -44,11 +44,11 @@ SETTINGS = {
     "LEPTONS": ("mu",),
 
     # Data loading
-    "FRACTION": 0.02,      # fraction of parquet files to process (<=1)
+    "FRACTION": 1,      # fraction of parquet files to process (<=1) defaults to 0.02.
     "PT_MIN": 10.0,        # baseline lepton pT threshold (GeV)
 
     # "Final" physics selection (mass window always applied in the scan)
-    "MASS_WINDOW": (66.0, 200.0),   # GeV
+    "MASS_WINDOW": (66.0, 116.0),   # GeV
     "REQUIRE_BOTH_ISO": True,       # if False: apply isolation only to leading lepton
 
     # Isolation scan (search region + step)
