@@ -41,14 +41,14 @@ os.chdir(Path(__file__).resolve().parent) # ensure relative paths work correctly
 SETTINGS = {
     # Run which channel(s)?
     #   ("mu",) for muons, ("e",) for electrons, ("mu","e") for both
-    "LEPTONS": ("e",),
+    "LEPTONS": ("mu",),
 
     # Data loading
     "FRACTION": 0.02,      # fraction of parquet files to process (<=1)
     "PT_MIN": 10.0,        # baseline lepton pT threshold (GeV)
 
     # "Final" physics selection (mass window always applied in the scan)
-    "MASS_WINDOW": (66.0, 116.0),   # GeV
+    "MASS_WINDOW": (66.0, 200.0),   # GeV
     "REQUIRE_BOTH_ISO": True,       # if False: apply isolation only to leading lepton
 
     # Isolation scan (search region + step)
@@ -57,7 +57,7 @@ SETTINGS = {
         "PTCONE_STEP":  0.25,          # GeV
         "ETCONE_RANGE": (0.0, 10.0),   # GeV
         "ETCONE_STEP":  0.25,          # GeV
-        "OS_SIG_EFF_MIN": 0.98,       # keep at least this much OS signal (relative to mass-only) **0.995 for mu and 0.98 for e**.
+        "OS_SIG_EFF_MIN": 0.995,       # keep at least this much OS signal (relative to mass-only) **0.995 for mu and 0.98 for e**.
     },
 
     # Plot styling & ranges
