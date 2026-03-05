@@ -504,9 +504,16 @@ def baseline_control_preselection(data: ak.Array, pt_min: float, trigger_mode: s
 def make_main_build_cut(lepton: str,
                         apply_medium_id: bool,
                         medium_field: str | None,
-                        stage: str = "baseline"):
+                        stage: str = "baseline",
+                        required_input_fields: list[str] | None = None):
     stage = stage.lower().strip()
     keep = main_build_keep_fields()
+    # backend.analysis_parquet validates requested read variables after cut_function.
+    # Keep all requested inputs so build-time slimming does not drop required columns too early.
+    if required_input_fields is not None:
+        for f in required_input_fields:
+            if f not in keep:
+                keep.append(f)
     pt_min = SETTINGS["PT_MIN"]
 
     def _cut(data: ak.Array) -> ak.Array:
@@ -518,8 +525,12 @@ def make_main_build_cut(lepton: str,
 
     return _cut
 
-def make_control_build_cut():
+def make_control_build_cut(required_input_fields: list[str] | None = None):
     keep = control_build_keep_fields()
+    if required_input_fields is not None:
+        for f in required_input_fields:
+            if f not in keep:
+                keep.append(f)
     pt_min = SETTINGS["PT_MIN"]
     trigger_mode = SETTINGS["ADDITIONAL_BBAR"]["CONTROL_TRIGGER_MODE"]
 
@@ -691,6 +702,7 @@ def ensure_main_tight_parquet(lepton: str, backend: dict) -> Path:
             apply_medium_id=apply_mid,
             medium_field=medium_field,
             stage=stage,
+            required_input_fields=read_vars,
         )
 
         print(f"[{lepton}] building main tight parquet for {sample} -> {root}")
@@ -749,7 +761,7 @@ def ensure_control_tight_parquet(backend: dict) -> Path:
     raw_fields = set(available_raw_fields(sample, backend))
     needed_raw = [v for v in RAW_BUILD_VARS_COMMON if v in raw_fields]
 
-    cut_function = make_control_build_cut()
+    cut_function = make_control_build_cut(required_input_fields=needed_raw)
 
     print(f"[control] building data-only control tight parquet -> {root}")
     subdir_name = build_one_sample_to_root(
@@ -857,7 +869,12 @@ def load_control_data(backend: dict) -> dict:
     # Raw fallback (data only)
     analysis_parquet = backend["analysis_parquet"]
     needed = [v for v in RAW_BUILD_VARS_COMMON if v in set(available_raw_fields("2to4lep", backend))]
-    return analysis_parquet(needed, ["2to4lep"], fraction=SETTINGS["FRACTION"], cut_function=make_control_build_cut())
+    return analysis_parquet(
+        needed,
+        ["2to4lep"],
+        fraction=SETTINGS["FRACTION"],
+        cut_function=make_control_build_cut(required_input_fields=needed),
+    )
 
 # ============================================================
 # 7) Raw fallback sign cuts (same as old direct workflow)
