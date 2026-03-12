@@ -66,7 +66,7 @@
   "ADDITIONAL_DATA_DRIVEN_BKG": {
     "ENABLED": true,
     "METHOD": "wrong_flavour",
-    "APPLY_TO_SIGMA": true,
+    "APPLY_TO_SIGMA": false,
     "CLIP_NEGATIVE_TO_ZERO": true,
     "USE_CONTROL_TIGHT_PARQUET": true,
     "FORCE_REBUILD": false,

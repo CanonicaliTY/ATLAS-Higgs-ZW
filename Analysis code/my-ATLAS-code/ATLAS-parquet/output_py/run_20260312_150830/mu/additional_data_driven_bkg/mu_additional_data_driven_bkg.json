@@ -1,0 +1,154 @@
+{
+  "channel": "mu",
+  "method_family": "symmetric_data_minus_mc_residual",
+  "selected_method": "wrong_flavour",
+  "selected_estimator": "N_WF = [(Data-MC)(e+mu-) + (Data-MC)(mu+e-)] / 2",
+  "final_cuts": {
+    "mass_window": [
+      66.0,
+      116.0
+    ],
+    "ptcone_max": 4.5,
+    "etcone_max": 9.25,
+    "require_both_iso": true
+  },
+  "settings": {
+    "method": "wrong_flavour",
+    "clip_negative_to_zero": true,
+    "apply_to_sigma": false,
+    "control_trigger_mode": "or",
+    "use_control_tight_parquet": true
+  },
+  "wrong_charge_region_for_channel": "mumu_ss",
+  "mc_samples_included": [
+    "Wmunu",
+    "Zmumu",
+    "Ztautau",
+    "m10_40_Zmumu",
+    "ttbar"
+  ],
+  "control_counts": {
+    "N_data": {
+      "ep_mum": 103852.0,
+      "mup_em": 0.0,
+      "ee_ss": 216569.0,
+      "mumu_ss": 4626.0
+    },
+    "N_MC": {
+      "ep_mum": 84263.64649796403,
+      "mup_em": 0.0,
+      "ee_ss": 3283.2051927489797,
+      "mumu_ss": 1529.9259435214778
+    },
+    "residual": {
+      "ep_mum": 19588.35350203597,
+      "mup_em": 0.0,
+      "ee_ss": 213285.79480725102,
+      "mumu_ss": 3096.074056478522
+    },
+    "clipped_residual": {
+      "ep_mum": 19588.35350203597,
+      "mup_em": 0.0,
+      "ee_ss": 213285.79480725102,
+      "mumu_ss": 3096.074056478522
+    }
+  },
+  "regions_table": [
+    {
+      "region": "ep_mum",
+      "N_data": 103852.0,
+      "N_MC": 84263.64649796403,
+      "residual": 19588.35350203597,
+      "clipped_residual": 19588.35350203597
+    },
+    {
+      "region": "mup_em",
+      "N_data": 0.0,
+      "N_MC": 0.0,
+      "residual": 0.0,
+      "clipped_residual": 0.0
+    },
+    {
+      "region": "ee_ss",
+      "N_data": 216569.0,
+      "N_MC": 3283.2051927489797,
+      "residual": 213285.79480725102,
+      "clipped_residual": 213285.79480725102
+    },
+    {
+      "region": "mumu_ss",
+      "N_data": 4626.0,
+      "N_MC": 1529.9259435214778,
+      "residual": 3096.074056478522,
+      "clipped_residual": 3096.074056478522
+    }
+  ],
+  "estimators_table": [
+    {
+      "method": "none",
+      "estimate_raw": 0.0,
+      "estimate_clipped": 0.0,
+      "description": "No additional estimator applied",
+      "sigma_pb_if_applied": 2248.3350171738853,
+      "sigma_shift_pb_if_applied": 0.0
+    },
+    {
+      "method": "wrong_flavour",
+      "estimate_raw": 9794.176751017985,
+      "estimate_clipped": 9794.176751017985,
+      "description": "N_WF = [(Data-MC)(e+mu-) + (Data-MC)(mu+e-)] / 2",
+      "sigma_pb_if_applied": 2247.444773257312,
+      "sigma_shift_pb_if_applied": -0.8902439165731266
+    },
+    {
+      "method": "wrong_charge",
+      "estimate_raw": 3096.074056478522,
+      "estimate_clipped": 3096.074056478522,
+      "description": "N_WC = (Data-MC)(mumu_ss)",
+      "sigma_pb_if_applied": 2248.0535988204992,
+      "sigma_shift_pb_if_applied": -0.28141835338601595
+    },
+    {
+      "method": "both_average",
+      "estimate_raw": 6445.125403748254,
+      "estimate_clipped": 6445.125403748254,
+      "description": "N_both = (N_WF + N_WC) / 2",
+      "sigma_pb_if_applied": 2247.7491860389055,
+      "sigma_shift_pb_if_applied": -0.5858311349797987
+    },
+    {
+      "method": "both_sum",
+      "estimate_raw": 12890.250807496508,
+      "estimate_clipped": 12890.250807496508,
+      "description": "N_both_sum = N_WF + N_WC (debug/comparison)",
+      "sigma_pb_if_applied": 2247.163354903926,
+      "sigma_shift_pb_if_applied": -1.1716622699591426
+    }
+  ],
+  "comparison_sigma_if_applied": {
+    "wrong_flavour": {
+      "extra_bkg": 9794.176751017985,
+      "sigma_pb": 2247.444773257312,
+      "sigma_shift_pb": -0.8902439165731266
+    },
+    "wrong_charge": {
+      "extra_bkg": 3096.074056478522,
+      "sigma_pb": 2248.0535988204992,
+      "sigma_shift_pb": -0.28141835338601595
+    },
+    "both_average": {
+      "extra_bkg": 6445.125403748254,
+      "sigma_pb": 2247.7491860389055,
+      "sigma_shift_pb": -0.5858311349797987
+    },
+    "both_sum": {
+      "extra_bkg": 12890.250807496508,
+      "sigma_pb": 2247.163354903926,
+      "sigma_shift_pb": -1.1716622699591426
+    }
+  },
+  "applied_extra_background": 9794.176751017985,
+  "nominal_sigma_pb": 2248.3350171738853,
+  "sigma_with_additional_bkg": null,
+  "sigma_shift_pb": null
+}
