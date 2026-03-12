@@ -65,8 +65,8 @@
   },
   "ADDITIONAL_DATA_DRIVEN_BKG": {
     "ENABLED": true,
-    "METHOD": "wrong_flavour",
-    "APPLY_TO_SIGMA": false,
+    "METHOD": "both_average",
+    "APPLY_TO_SIGMA": true,
     "CLIP_NEGATIVE_TO_ZERO": true,
     "USE_CONTROL_TIGHT_PARQUET": true,
     "FORCE_REBUILD": false,

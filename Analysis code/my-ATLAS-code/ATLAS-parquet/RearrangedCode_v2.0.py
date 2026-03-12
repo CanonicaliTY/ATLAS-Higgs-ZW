@@ -123,11 +123,11 @@ SETTINGS = {
         # "wrong_charge"
         # "both_average"
         # "both_sum"
-        "METHOD": "wrong_flavour",
+        "METHOD": "both_average",
 
         # False -> study only, do not alter nominal sigma
         # True  -> compute an extra sigma_with_additional_bkg entry
-        "APPLY_TO_SIGMA": False,
+        "APPLY_TO_SIGMA": True,
 
         # if residual < 0, clip applied extra background to 0
         "CLIP_NEGATIVE_TO_ZERO": True,

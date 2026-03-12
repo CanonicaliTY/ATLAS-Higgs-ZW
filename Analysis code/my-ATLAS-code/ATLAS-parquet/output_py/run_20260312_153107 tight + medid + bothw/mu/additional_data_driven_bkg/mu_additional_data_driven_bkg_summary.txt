@@ -1,7 +1,7 @@
 Channel: mu
 Method family: symmetric data-driven additional background
-Selected method: wrong_flavour
-Selected estimator: N_WF = [(Data-MC)(e+mu-) + (Data-MC)(mu+e-)] / 2
+Selected method: both_average
+Selected estimator: N_both = (N_WF + N_WC) / 2
 Wrong-charge region for this channel: mumu_ss
 Final cuts: mass in (66.0, 116.0) GeV, ptcone<4.500, etcone<9.250, require_both_iso=True
 Clip negative residual to zero: True
@@ -21,5 +21,7 @@ wrong_flavour   9794.176751       9794.176751 N_WF = [(Data-MC)(e+mu-) + (Data-M
  both_average   6445.125404       6445.125404                       N_both = (N_WF + N_WC) / 2          2247.749186                  -0.585831
      both_sum  12890.250807      12890.250807      N_both_sum = N_WF + N_WC (debug/comparison)          2247.163355                  -1.171662
 
-Applied extra background (after clipping rule): 9794.176751
-APPLY_TO_SIGMA=False, so nominal sigma is unchanged.
+Applied extra background (after clipping rule): 6445.125404
+Nominal sigma [pb]: 2248.335017
+Sigma with additional background [pb]: 2247.749186
+Sigma shift [pb]: -0.585831
