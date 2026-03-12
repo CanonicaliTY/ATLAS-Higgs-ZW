@@ -127,7 +127,7 @@ SETTINGS = {
 
         # False -> study only, do not alter nominal sigma
         # True  -> compute an extra sigma_with_additional_bkg entry
-        "APPLY_TO_SIGMA": True,
+        "APPLY_TO_SIGMA": False,
 
         # if residual < 0, clip applied extra background to 0
         "CLIP_NEGATIVE_TO_ZERO": True,
@@ -954,113 +954,169 @@ def load_main_events(lepton: str, sign: str, backend: dict) -> dict:
     cut_function = make_raw_sign_cut(lepton, sign)
     return analysis_parquet(raw_read_vars, cfg["string_codes"], fraction=SETTINGS["FRACTION"], cut_function=cut_function)
 
-def load_control_samples(backend: dict,
-                         lepton: str,
-                         best_ptc: float,
-                         best_etc: float,
-                         require_both: bool) -> dict:
+def _chunk_read_columns_for_control(file_fields: set[str]) -> list[str]:
+    required = [
+        "lep_pt",
+        "lep_type",
+        "lep_charge",
+        "lep_ptvarcone30",
+        "lep_topoetcone20",
+        "mass",
+    ]
+    # charge_product can be read directly if present; otherwise computed from lep_charge
+    if "charge_product" in file_fields:
+        required.append("charge_product")
+
+    optional = []
+    if "weight" in file_fields:
+        optional.append("weight")
+    if "totalWeight" in file_fields:
+        optional.append("totalWeight")
+
+    cols = [c for c in required if c in file_fields]
+    for c in optional:
+        if c not in cols:
+            cols.append(c)
+    return cols
+
+def _accumulate_one_control_chunk(sample_code: str,
+                                  chunk: ak.Array,
+                                  data_sample: str,
+                                  mc_sample_set: set[str],
+                                  data_counts: dict[str, float],
+                                  mc_counts: dict[str, float],
+                                  mc_samples_included: set[str],
+                                  best_ptc: float,
+                                  best_etc: float,
+                                  require_both: bool) -> None:
+    if len(chunk) == 0:
+        return
+
+    if "charge_product" not in chunk.fields:
+        if "lep_charge" not in chunk.fields:
+            return
+        chunk = ak.with_field(chunk, chunk["lep_charge"][:, 0] * chunk["lep_charge"][:, 1], "charge_product")
+
+    selected = apply_selection(
+        chunk,
+        mass_window=SETTINGS["MASS_WINDOW"],
+        ptcone_max=best_ptc,
+        etcone_max=best_etc,
+        require_both=require_both,
+    )
+    if selected is None or len(selected) == 0:
+        return
+
+    if sample_code == data_sample:
+        y = region_counts(selected)
+        for region in data_counts:
+            data_counts[region] += y[region]
+        return
+
+    if sample_code in mc_sample_set:
+        y = region_weighted_yields(selected)
+        for region in mc_counts:
+            mc_counts[region] += y[region]
+        mc_samples_included.add(sample_code)
+
+def accumulate_control_totals_from_tight_chunks(backend: dict,
+                                                lepton: str,
+                                                best_ptc: float,
+                                                best_etc: float,
+                                                require_both: bool) -> dict:
     """
-    Stream control samples one-by-one and accumulate control-region totals.
-    This avoids holding all control sample arrays in memory at once.
+    Chunk-level streaming accumulator for additional data-driven study.
+    Reads control tight parquet files chunk-by-chunk (row-group-by-row-group)
+    and accumulates only control-region totals.
     """
+    if not SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["USE_CONTROL_TIGHT_PARQUET"]:
+        raise RuntimeError(
+            "Chunk-level accumulator requires USE_CONTROL_TIGHT_PARQUET=True. "
+            "Disable additional study or enable control tight parquet."
+        )
+
+    root = ensure_control_tight_parquet(backend)
+    man = read_manifest(root)
+    subdirs = man["subdirs"]
+
     sample_info = collect_channel_control_samples(lepton)
     data_sample = sample_info["data_sample"]
     mc_sample_set = set(sample_info["mc_samples"])
-    relevant_samples = sample_info["all_samples"]
+    relevant_samples = set(sample_info["all_samples"])
+
+    # Prefer manifest mapping (subdir -> sample) to avoid suffix ambiguity.
+    subdir_to_sample = {}
+    for row in man.get("samples", []):
+        sd = row.get("output_subdir")
+        sc = row.get("sample")
+        if sd and sc:
+            subdir_to_sample[str(sd)] = str(sc)
 
     data_counts = {"ep_mum": 0.0, "mup_em": 0.0, "ee_ss": 0.0, "mumu_ss": 0.0}
     mc_counts = {"ep_mum": 0.0, "mup_em": 0.0, "ee_ss": 0.0, "mumu_ss": 0.0}
     mc_samples_included = set()
 
-    def _accumulate(sample_code: str, events: ak.Array | None) -> None:
-        if events is None:
-            return
-        if sample_code == data_sample:
-            y = region_counts(events)
-            for region in data_counts:
-                data_counts[region] += y[region]
-            return
-        if sample_code in mc_sample_set:
-            y = region_weighted_yields(events)
-            for region in mc_counts:
-                mc_counts[region] += y[region]
-            mc_samples_included.add(sample_code)
+    for subdir_name in subdirs:
+        sample_code = subdir_to_sample.get(subdir_name)
+        if sample_code is None:
+            sample_code = infer_sample_code_from_name(subdir_name, list(relevant_samples))
+        if sample_code is None or sample_code not in relevant_samples:
+            continue
 
-    use_control_tight = SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["USE_CONTROL_TIGHT_PARQUET"]
-    if use_control_tight:
-        root = ensure_control_tight_parquet(backend)
-        man = read_manifest(root)
-        subdirs = man["subdirs"]
-        final_cut = make_final_control_cut(best_ptc, best_etc, require_both)
-
-        for subdir_name in subdirs:
-            sample_hint = infer_sample_code_from_name(subdir_name, relevant_samples)
-            if sample_hint is None:
+        subdir = root / subdir_name
+        parquet_files = sorted(subdir.rglob("*.parquet"))
+        for pfile in parquet_files:
+            pf = pq.ParquetFile(pfile)
+            file_fields = set(pf.schema_arrow.names)
+            core_required = {"lep_type", "lep_charge", "lep_ptvarcone30", "lep_topoetcone20", "mass"}
+            missing = sorted(core_required - file_fields)
+            if missing:
+                raise KeyError(f"Missing required control fields in {pfile}: {missing}")
+            cols = _chunk_read_columns_for_control(file_fields)
+            if len(cols) == 0:
                 continue
 
-            d = load_tight_subdirs(
-                root=root,
-                subdirs=[subdir_name],
-                needed_fields=required_control_read_fields(),
-                backend=backend,
-                fraction=SETTINGS["FRACTION"],
-                cut_function=final_cut,
-            )
-            for key, events in d.items():
-                sample_code = infer_sample_code_from_name(key, relevant_samples)
-                if sample_code is None:
-                    sample_code = sample_hint
-                _accumulate(sample_code, events)
-            del d
-
-        return {
-            "data_counts": data_counts,
-            "mc_counts": mc_counts,
-            "mc_samples_included": sorted(mc_samples_included),
-        }
-
-    # Raw fallback (streaming by sample) if control tight parquet is disabled.
-    validate_read_variables = backend["validate_read_variables"]
-    analysis_parquet = backend["analysis_parquet"]
-    for sample in relevant_samples:
-        raw_fields = set(available_raw_fields(sample, backend))
-        medium_field = choose_medium_field(sample, backend)
-        apply_mid, _ = should_apply_medium_id(sample, medium_field)
-
-        needed = [v for v in RAW_BUILD_VARS_COMMON if v in raw_fields]
-        if medium_field is not None and medium_field not in needed:
-            needed.append(medium_field)
-
-        read_vars = validate_read_variables([sample], needed)
-        cut_function = make_control_build_cut(
-            apply_medium_id=apply_mid,
-            medium_field=medium_field,
-            required_input_fields=read_vars,
-        )
-        d = analysis_parquet(
-            read_vars,
-            [sample],
-            fraction=SETTINGS["FRACTION"],
-            cut_function=cut_function,
-        )
-
-        k = get_sample_key_by_prefix(d, sample)
-        events = d[k] if k is not None else None
-        events = apply_selection(
-            events,
-            mass_window=SETTINGS["MASS_WINDOW"],
-            ptcone_max=best_ptc,
-            etcone_max=best_etc,
-            require_both=require_both,
-        )
-        _accumulate(sample, events)
-        del d
+            for rg in range(pf.num_row_groups):
+                table = pf.read_row_group(rg, columns=cols)
+                if table.num_rows == 0:
+                    continue
+                chunk = ak.from_arrow(table)
+                _accumulate_one_control_chunk(
+                    sample_code=sample_code,
+                    chunk=chunk,
+                    data_sample=data_sample,
+                    mc_sample_set=mc_sample_set,
+                    data_counts=data_counts,
+                    mc_counts=mc_counts,
+                    mc_samples_included=mc_samples_included,
+                    best_ptc=best_ptc,
+                    best_etc=best_etc,
+                    require_both=require_both,
+                )
+                del chunk
+                del table
 
     return {
         "data_counts": data_counts,
         "mc_counts": mc_counts,
         "mc_samples_included": sorted(mc_samples_included),
     }
+
+def load_control_samples(backend: dict,
+                         lepton: str,
+                         best_ptc: float,
+                         best_etc: float,
+                         require_both: bool) -> dict:
+    """
+    Backward-compatible wrapper.
+    """
+    return accumulate_control_totals_from_tight_chunks(
+        backend=backend,
+        lepton=lepton,
+        best_ptc=best_ptc,
+        best_etc=best_etc,
+        require_both=require_both,
+    )
 
 # ============================================================
 # 7) Raw fallback sign cuts (same as old direct workflow)
@@ -1387,11 +1443,13 @@ def region_weighted_yields(events: ak.Array | None) -> dict[str, float]:
 
 def collect_channel_control_samples(lepton: str) -> dict:
     """
-    Return the channel-relevant control sample codes.
+    Return control sample codes for additional study:
+      - data: 2to4lep
+      - MC: all non-data samples included in control build set
     """
-    cfg = CHANNELS[lepton]
     data_sample = "2to4lep"
-    mc_samples = [s for s in cfg["string_codes"] if not is_data_sample(s)]
+    all_control_samples = control_sample_codes_for_build()
+    mc_samples = [s for s in all_control_samples if not is_data_sample(s)]
 
     all_samples = [data_sample]
     for s in mc_samples:
@@ -1867,7 +1925,7 @@ def run_channel(lepton: str, backend: dict, outdir: Path) -> None:
     # ---- optional additional data-driven study (separate) ----
     additional_result = None
     if SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["ENABLED"]:
-        control_totals = load_control_samples(
+        control_totals = accumulate_control_totals_from_tight_chunks(
             backend=backend,
             lepton=lepton,
             best_ptc=best_ptc,
@@ -1929,6 +1987,13 @@ def run_channel(lepton: str, backend: dict, outdir: Path) -> None:
             "syst_variations": [{"label": k, "sigma_pb": v} for k, v in syst_list],
             "additional_data_driven_bkg": additional_result,
         })
+
+# ============================================================
+# Note: additional data-driven control accumulation
+# ============================================================
+# 1) Control study now streams tight parquet row-groups chunk-by-chunk.
+# 2) Only control-region totals are accumulated; no full control sample arrays are kept.
+# 3) This reduces peak memory and prevents OOM in full-fraction additional study.
 
 # ============================================================
 # 14) Main entry point
