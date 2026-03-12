@@ -1,0 +1,6 @@
+method,estimate_raw,estimate_clipped,description,sigma_pb_if_applied,sigma_shift_pb_if_applied
+none,0.0,0.0,No additional estimator applied,2203.0683107800855,0.0
+wrong_flavour,14085.57278079154,14085.57278079154,N_WF = [(Data-MC)(e+mu-) + (Data-MC)(mu+e-)] / 2,2201.460410567844,-1.607900212241475
+wrong_charge,213283.91509268963,213283.91509268963,N_WC = (Data-MC)(ee_ss),2178.72146612689,-24.346844653195603
+both_average,113684.74393674059,113684.74393674059,N_both = (N_WF + N_WC) / 2,2190.0909383473672,-12.977372432718312
+both_sum,227369.48787348118,227369.48787348118,N_both_sum = N_WF + N_WC (debug/comparison),2177.113565914649,-25.954744865436624

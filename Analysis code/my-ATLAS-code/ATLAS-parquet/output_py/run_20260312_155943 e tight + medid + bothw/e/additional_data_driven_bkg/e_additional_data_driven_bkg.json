@@ -1,0 +1,161 @@
+{
+  "channel": "e",
+  "method_family": "symmetric_data_minus_mc_residual",
+  "selected_method": "both_average",
+  "selected_estimator": "N_both = (N_WF + N_WC) / 2",
+  "final_cuts": {
+    "mass_window": [
+      66.0,
+      116.0
+    ],
+    "ptcone_max": 4.5,
+    "etcone_max": 9.25,
+    "require_both_iso": true
+  },
+  "settings": {
+    "method": "both_average",
+    "clip_negative_to_zero": true,
+    "apply_to_sigma": true,
+    "control_trigger_mode": "or",
+    "use_control_tight_parquet": true
+  },
+  "wrong_charge_region_for_channel": "ee_ss",
+  "mc_samples_included": [
+    "Ztautau",
+    "ttbar"
+  ],
+  "control_counts": {
+    "N_data": {
+      "ep_mum": 103852.0,
+      "mup_em": 0.0,
+      "ee_ss": 216569.0,
+      "mumu_ss": 4626.0
+    },
+    "N_MC": {
+      "ep_mum": 75680.85443841692,
+      "mup_em": 0.0,
+      "ee_ss": 3285.084907310382,
+      "mumu_ss": 678.8165784311581
+    },
+    "residual": {
+      "ep_mum": 28171.14556158308,
+      "mup_em": 0.0,
+      "ee_ss": 213283.91509268963,
+      "mumu_ss": 3947.183421568842
+    },
+    "clipped_residual": {
+      "ep_mum": 28171.14556158308,
+      "mup_em": 0.0,
+      "ee_ss": 213283.91509268963,
+      "mumu_ss": 3947.183421568842
+    }
+  },
+  "regions_table": [
+    {
+      "region": "ep_mum",
+      "N_data": 103852.0,
+      "N_MC": 75680.85443841692,
+      "residual": 28171.14556158308,
+      "clipped_residual": 28171.14556158308
+    },
+    {
+      "region": "mup_em",
+      "N_data": 0.0,
+      "N_MC": 0.0,
+      "residual": 0.0,
+      "clipped_residual": 0.0
+    },
+    {
+      "region": "ee_ss",
+      "N_data": 216569.0,
+      "N_MC": 3285.084907310382,
+      "residual": 213283.91509268963,
+      "clipped_residual": 213283.91509268963
+    },
+    {
+      "region": "mumu_ss",
+      "N_data": 4626.0,
+      "N_MC": 678.8165784311581,
+      "residual": 3947.183421568842,
+      "clipped_residual": 3947.183421568842
+    }
+  ],
+  "estimators_table": [
+    {
+      "method": "none",
+      "estimate_raw": 0.0,
+      "estimate_clipped": 0.0,
+      "description": "No additional estimator applied",
+      "sigma_pb_if_applied": 2203.0683107800855,
+      "sigma_shift_pb_if_applied": 0.0
+    },
+    {
+      "method": "wrong_flavour",
+      "estimate_raw": 14085.57278079154,
+      "estimate_clipped": 14085.57278079154,
+      "description": "N_WF = [(Data-MC)(e+mu-) + (Data-MC)(mu+e-)] / 2",
+      "sigma_pb_if_applied": 2201.460410567844,
+      "sigma_shift_pb_if_applied": -1.607900212241475
+    },
+    {
+      "method": "wrong_charge",
+      "estimate_raw": 213283.91509268963,
+      "estimate_clipped": 213283.91509268963,
+      "description": "N_WC = (Data-MC)(ee_ss)",
+      "sigma_pb_if_applied": 2178.72146612689,
+      "sigma_shift_pb_if_applied": -24.346844653195603
+    },
+    {
+      "method": "both_average",
+      "estimate_raw": 113684.74393674059,
+      "estimate_clipped": 113684.74393674059,
+      "description": "N_both = (N_WF + N_WC) / 2",
+      "sigma_pb_if_applied": 2190.0909383473672,
+      "sigma_shift_pb_if_applied": -12.977372432718312
+    },
+    {
+      "method": "both_sum",
+      "estimate_raw": 227369.48787348118,
+      "estimate_clipped": 227369.48787348118,
+      "description": "N_both_sum = N_WF + N_WC (debug/comparison)",
+      "sigma_pb_if_applied": 2177.113565914649,
+      "sigma_shift_pb_if_applied": -25.954744865436624
+    }
+  ],
+  "comparison_sigma_if_applied": {
+    "wrong_flavour": {
+      "extra_bkg": 14085.57278079154,
+      "sigma_pb": 2201.460410567844,
+      "sigma_shift_pb": -1.607900212241475
+    },
+    "wrong_charge": {
+      "extra_bkg": 213283.91509268963,
+      "sigma_pb": 2178.72146612689,
+      "sigma_shift_pb": -24.346844653195603
+    },
+    "both_average": {
+      "extra_bkg": 113684.74393674059,
+      "sigma_pb": 2190.0909383473672,
+      "sigma_shift_pb": -12.977372432718312
+    },
+    "both_sum": {
+      "extra_bkg": 227369.48787348118,
+      "sigma_pb": 2177.113565914649,
+      "sigma_shift_pb": -25.954744865436624
+    }
+  },
+  "applied_extra_background": 113684.74393674059,
+  "nominal_sigma_pb": 2203.0683107800855,
+  "sigma_with_additional_bkg": {
+    "primary_signal": "Zee",
+    "N_selected": 19390459.0,
+    "N_bkg_mc": 91077.85912001003,
+    "N_bkg_extra": 113684.74393674059,
+    "N_bkg_total": 204762.6030567506,
+    "N_sig_data": 19185696.39694325,
+    "epsilon": 0.2862819672944199,
+    "sigma_pb": 2190.0909383473672,
+    "dsigma_stat_pb": 0.506268505936474
+  },
+  "sigma_shift_pb": -12.977372432718312
+}

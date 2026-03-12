@@ -1,0 +1,27 @@
+Channel: e
+Method family: symmetric data-driven additional background
+Selected method: both_average
+Selected estimator: N_both = (N_WF + N_WC) / 2
+Wrong-charge region for this channel: ee_ss
+Final cuts: mass in (66.0, 116.0) GeV, ptcone<4.500, etcone<9.250, require_both_iso=True
+Clip negative residual to zero: True
+
+Control-region yields and residuals:
+ region   N_data         N_MC      residual  clipped_residual
+ ep_mum 103852.0 75680.854438  28171.145562      28171.145562
+ mup_em      0.0     0.000000      0.000000          0.000000
+  ee_ss 216569.0  3285.084907 213283.915093     213283.915093
+mumu_ss   4626.0   678.816578   3947.183422       3947.183422
+
+Estimator table:
+       method  estimate_raw  estimate_clipped                                      description  sigma_pb_if_applied  sigma_shift_pb_if_applied
+         none      0.000000          0.000000                  No additional estimator applied          2203.068311                   0.000000
+wrong_flavour  14085.572781      14085.572781 N_WF = [(Data-MC)(e+mu-) + (Data-MC)(mu+e-)] / 2          2201.460411                  -1.607900
+ wrong_charge 213283.915093     213283.915093                          N_WC = (Data-MC)(ee_ss)          2178.721466                 -24.346845
+ both_average 113684.743937     113684.743937                       N_both = (N_WF + N_WC) / 2          2190.090938                 -12.977372
+     both_sum 227369.487873     227369.487873      N_both_sum = N_WF + N_WC (debug/comparison)          2177.113566                 -25.954745
+
+Applied extra background (after clipping rule): 113684.743937
+Nominal sigma [pb]: 2203.068311
+Sigma with additional background [pb]: 2190.090938
+Sigma shift [pb]: -12.977372
