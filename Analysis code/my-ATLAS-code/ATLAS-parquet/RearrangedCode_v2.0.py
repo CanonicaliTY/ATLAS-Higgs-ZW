@@ -351,6 +351,16 @@ def get_sample_key_by_prefix(data_dict: dict, sample_code: str) -> str | None:
         matches = sorted(matches, key=len)
     return matches[0]
 
+def infer_sample_code_from_name(name: str, sample_codes: list[str]) -> str | None:
+    """
+    Infer sample code from a subdir/key name using longest-prefix matching.
+    This is robust for codes that already contain underscores (e.g. m10_40_Zmumu).
+    """
+    for sample in sorted(sample_codes, key=len, reverse=True):
+        if name == sample or name.startswith(sample + "_"):
+            return sample
+    return None
+
 def tight_first_parquet_file(subdir: Path) -> Path:
     files = sorted(subdir.glob("*.parquet"))
     if files:
@@ -605,6 +615,25 @@ def apply_selection(events: ak.Array | None,
             mask = mask & (events["lep_topoetcone20"][:, 0] < etcone_max)
 
     return events[mask]
+
+def make_final_control_cut(ptcone_max: float,
+                           etcone_max: float,
+                           require_both: bool):
+    """
+    Final control-region cut applied during streaming reads to reduce peak memory.
+    """
+    mass_window = SETTINGS["MASS_WINDOW"]
+
+    def _cut(data: ak.Array) -> ak.Array:
+        return apply_selection(
+            data,
+            mass_window=mass_window,
+            ptcone_max=ptcone_max,
+            etcone_max=etcone_max,
+            require_both=require_both,
+        )
+
+    return _cut
 
 # ============================================================
 # 6) Tight parquet methodology (notebook-style write/read)
@@ -925,26 +954,75 @@ def load_main_events(lepton: str, sign: str, backend: dict) -> dict:
     cut_function = make_raw_sign_cut(lepton, sign)
     return analysis_parquet(raw_read_vars, cfg["string_codes"], fraction=SETTINGS["FRACTION"], cut_function=cut_function)
 
-def load_control_samples(backend: dict) -> dict:
+def load_control_samples(backend: dict,
+                         lepton: str,
+                         best_ptc: float,
+                         best_etc: float,
+                         require_both: bool) -> dict:
+    """
+    Stream control samples one-by-one and accumulate control-region totals.
+    This avoids holding all control sample arrays in memory at once.
+    """
+    sample_info = collect_channel_control_samples(lepton)
+    data_sample = sample_info["data_sample"]
+    mc_sample_set = set(sample_info["mc_samples"])
+    relevant_samples = sample_info["all_samples"]
+
+    data_counts = {"ep_mum": 0.0, "mup_em": 0.0, "ee_ss": 0.0, "mumu_ss": 0.0}
+    mc_counts = {"ep_mum": 0.0, "mup_em": 0.0, "ee_ss": 0.0, "mumu_ss": 0.0}
+    mc_samples_included = set()
+
+    def _accumulate(sample_code: str, events: ak.Array | None) -> None:
+        if events is None:
+            return
+        if sample_code == data_sample:
+            y = region_counts(events)
+            for region in data_counts:
+                data_counts[region] += y[region]
+            return
+        if sample_code in mc_sample_set:
+            y = region_weighted_yields(events)
+            for region in mc_counts:
+                mc_counts[region] += y[region]
+            mc_samples_included.add(sample_code)
+
     use_control_tight = SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["USE_CONTROL_TIGHT_PARQUET"]
     if use_control_tight:
         root = ensure_control_tight_parquet(backend)
         man = read_manifest(root)
         subdirs = man["subdirs"]
-        return load_tight_subdirs(
-            root=root,
-            subdirs=subdirs,
-            needed_fields=required_control_read_fields(),
-            backend=backend,
-            fraction=SETTINGS["FRACTION"],
-            cut_function=None,
-        )
+        final_cut = make_final_control_cut(best_ptc, best_etc, require_both)
 
-    # Raw fallback (Data + channel-related MC), kept for debugging or when control tight parquet is disabled.
+        for subdir_name in subdirs:
+            sample_hint = infer_sample_code_from_name(subdir_name, relevant_samples)
+            if sample_hint is None:
+                continue
+
+            d = load_tight_subdirs(
+                root=root,
+                subdirs=[subdir_name],
+                needed_fields=required_control_read_fields(),
+                backend=backend,
+                fraction=SETTINGS["FRACTION"],
+                cut_function=final_cut,
+            )
+            for key, events in d.items():
+                sample_code = infer_sample_code_from_name(key, relevant_samples)
+                if sample_code is None:
+                    sample_code = sample_hint
+                _accumulate(sample_code, events)
+            del d
+
+        return {
+            "data_counts": data_counts,
+            "mc_counts": mc_counts,
+            "mc_samples_included": sorted(mc_samples_included),
+        }
+
+    # Raw fallback (streaming by sample) if control tight parquet is disabled.
     validate_read_variables = backend["validate_read_variables"]
     analysis_parquet = backend["analysis_parquet"]
-    out = {}
-    for sample in control_sample_codes_for_build():
+    for sample in relevant_samples:
         raw_fields = set(available_raw_fields(sample, backend))
         medium_field = choose_medium_field(sample, backend)
         apply_mid, _ = should_apply_medium_id(sample, medium_field)
@@ -965,8 +1043,24 @@ def load_control_samples(backend: dict) -> dict:
             fraction=SETTINGS["FRACTION"],
             cut_function=cut_function,
         )
-        out.update(d)
-    return out
+
+        k = get_sample_key_by_prefix(d, sample)
+        events = d[k] if k is not None else None
+        events = apply_selection(
+            events,
+            mass_window=SETTINGS["MASS_WINDOW"],
+            ptcone_max=best_ptc,
+            etcone_max=best_etc,
+            require_both=require_both,
+        )
+        _accumulate(sample, events)
+        del d
+
+    return {
+        "data_counts": data_counts,
+        "mc_counts": mc_counts,
+        "mc_samples_included": sorted(mc_samples_included),
+    }
 
 # ============================================================
 # 7) Raw fallback sign cuts (same as old direct workflow)
@@ -1291,24 +1385,24 @@ def region_weighted_yields(events: ak.Array | None) -> dict[str, float]:
     masks = control_region_masks(events)
     return {name: yield_mc(events[mask]) for name, mask in masks.items()}
 
-def collect_channel_control_samples(control_samples: dict, lepton: str) -> tuple[ak.Array, dict[str, ak.Array]]:
+def collect_channel_control_samples(lepton: str) -> dict:
     """
-    Pick Data + channel-relevant MC from loaded control samples.
+    Return the channel-relevant control sample codes.
     """
     cfg = CHANNELS[lepton]
-    data_key = get_sample_key_by_prefix(control_samples, "2to4lep")
-    if data_key is None:
-        raise RuntimeError("Could not find data sample in control samples (expected prefix '2to4lep').")
-    data_events = control_samples[data_key]
+    data_sample = "2to4lep"
+    mc_samples = [s for s in cfg["string_codes"] if not is_data_sample(s)]
 
-    mc_events = {}
-    for sample in cfg["string_codes"]:
-        if is_data_sample(sample):
-            continue
-        k = get_sample_key_by_prefix(control_samples, sample)
-        if k is not None:
-            mc_events[sample] = control_samples[k]
-    return data_events, mc_events
+    all_samples = [data_sample]
+    for s in mc_samples:
+        if s not in all_samples:
+            all_samples.append(s)
+
+    return {
+        "data_sample": data_sample,
+        "mc_samples": mc_samples,
+        "all_samples": all_samples,
+    }
 
 def clip_value(x: float, clip_negative: bool) -> float:
     return max(float(x), 0.0) if clip_negative else float(x)
@@ -1355,7 +1449,7 @@ def save_estimator_plot(df: pd.DataFrame, out_path: Path, title: str, selected_m
     fig.tight_layout()
     save_fig(fig, out_path)
 
-def additional_data_driven_background_study(control_samples: dict,
+def additional_data_driven_background_study(control_totals: dict,
                                             lepton: str,
                                             nominal_sigma: dict,
                                             plot_OS: dict,
@@ -1375,24 +1469,9 @@ def additional_data_driven_background_study(control_samples: dict,
     if method not in allowed_methods:
         raise ValueError(f"Unknown ADDITIONAL_DATA_DRIVEN_BKG.METHOD={method!r}. Allowed: {sorted(allowed_methods)}")
 
-    selected = {
-        k: apply_selection(
-            v,
-            mass_window=SETTINGS["MASS_WINDOW"],
-            ptcone_max=best_ptc,
-            etcone_max=best_etc,
-            require_both=SETTINGS["REQUIRE_BOTH_ISO"],
-        )
-        for k, v in control_samples.items()
-    }
-    data_events, mc_events = collect_channel_control_samples(selected, lepton)
-
-    data_counts = region_counts(data_events)
-    mc_counts = {"ep_mum": 0.0, "mup_em": 0.0, "ee_ss": 0.0, "mumu_ss": 0.0}
-    for ev in mc_events.values():
-        y = region_weighted_yields(ev)
-        for region in mc_counts:
-            mc_counts[region] += y[region]
+    data_counts = dict(control_totals["data_counts"])
+    mc_counts = dict(control_totals["mc_counts"])
+    mc_samples_included = list(control_totals["mc_samples_included"])
 
     clip_negative = bool(add_cfg["CLIP_NEGATIVE_TO_ZERO"])
     residuals = {k: data_counts[k] - mc_counts[k] for k in data_counts}
@@ -1505,7 +1584,7 @@ def additional_data_driven_background_study(control_samples: dict,
             "use_control_tight_parquet": bool(add_cfg["USE_CONTROL_TIGHT_PARQUET"]),
         },
         "wrong_charge_region_for_channel": wc_region,
-        "mc_samples_included": sorted(mc_events.keys()),
+        "mc_samples_included": sorted(mc_samples_included),
         "control_counts": {
             "N_data": data_counts,
             "N_MC": mc_counts,
@@ -1788,10 +1867,16 @@ def run_channel(lepton: str, backend: dict, outdir: Path) -> None:
     # ---- optional additional data-driven study (separate) ----
     additional_result = None
     if SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["ENABLED"]:
-        control_dict = load_control_samples(backend)
+        control_totals = load_control_samples(
+            backend=backend,
+            lepton=lepton,
+            best_ptc=best_ptc,
+            best_etc=best_etc,
+            require_both=require_both,
+        )
         add_dir = outdir / "additional_data_driven_bkg"
         additional_result = additional_data_driven_background_study(
-            control_samples=control_dict,
+            control_totals=control_totals,
             lepton=lepton,
             nominal_sigma=sigma_nom,
             plot_OS=plot_OS,
