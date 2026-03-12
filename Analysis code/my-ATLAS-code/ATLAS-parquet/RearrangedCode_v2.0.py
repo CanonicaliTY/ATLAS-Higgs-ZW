@@ -36,7 +36,7 @@ from __future__ import annotations
 SETTINGS = {
     # Which channel(s) to run?
     # ("mu",) ; ("e",) ; ("mu","e")
-    "LEPTONS": ("mu",),
+    "LEPTONS": ("e",),
 
     # Fractions
     "FRACTION": 1.0,   # fraction used when READING for the analysis stage
