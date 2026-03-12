@@ -18,7 +18,7 @@ Main workflow (per chosen lepton channel):
   4) Scan isolation cuts (or use fixed cuts).
   5) Make AFTER plots, cutflow, and cut-and-count cross section.
   6) Optionally build / reuse a separate control tight parquet (data + MC) and evaluate
-     a channel-specific data-driven additional-background estimate. This module is kept
+     a symmetric data-driven additional-background estimate with selectable methods. This module is kept
      separate from the main workflow by default.
 
 This design follows the lab notebook's "Write the Data to Disk" methodology:
@@ -116,6 +116,14 @@ SETTINGS = {
     # Purely additional, separate data-driven control-region study (professor method)
     "ADDITIONAL_DATA_DRIVEN_BKG": {
         "ENABLED": True,
+
+        # allowed:
+        # "none"
+        # "wrong_flavour"
+        # "wrong_charge"
+        # "both_average"
+        # "both_sum"
+        "METHOD": "wrong_flavour",
 
         # False -> study only, do not alter nominal sigma
         # True  -> compute an extra sigma_with_additional_bkg entry
@@ -844,6 +852,7 @@ def ensure_control_tight_parquet(backend: dict) -> Path:
             "CONTROL_KEEP_FIELDS": control_build_keep_fields(),
             "ADDITIONAL_DATA_DRIVEN_BKG": {
                 "ENABLED": SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["ENABLED"],
+                "METHOD": SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["METHOD"],
                 "APPLY_TO_SIGMA": SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["APPLY_TO_SIGMA"],
                 "CLIP_NEGATIVE_TO_ZERO": SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["CLIP_NEGATIVE_TO_ZERO"],
                 "USE_CONTROL_TIGHT_PARQUET": SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["USE_CONTROL_TIGHT_PARQUET"],
@@ -1255,6 +1264,7 @@ def control_region_masks(events: ak.Array) -> dict[str, ak.Array]:
       - ep_mum: (e+, mu-)
       - mup_em: (mu+, e-)
       - ee_ss:  (ee, same sign)
+      - mumu_ss: (mumu, same sign)
     """
     t0 = events["lep_type"][:, 0]
     t1 = events["lep_type"][:, 1]
@@ -1266,17 +1276,18 @@ def control_region_masks(events: ak.Array) -> dict[str, ak.Array]:
         "ep_mum": (t0 == 11) & (q0 > 0) & (t1 == 13) & (q1 < 0),
         "mup_em": (t0 == 13) & (q0 > 0) & (t1 == 11) & (q1 < 0),
         "ee_ss": (t0 == 11) & (t1 == 11) & (charge_product > 0),
+        "mumu_ss": (t0 == 13) & (t1 == 13) & (charge_product > 0),
     }
 
 def region_counts(events: ak.Array | None) -> dict[str, float]:
     if events is None:
-        return {"ep_mum": 0.0, "mup_em": 0.0, "ee_ss": 0.0}
+        return {"ep_mum": 0.0, "mup_em": 0.0, "ee_ss": 0.0, "mumu_ss": 0.0}
     masks = control_region_masks(events)
     return {name: float(len(events[mask])) for name, mask in masks.items()}
 
 def region_weighted_yields(events: ak.Array | None) -> dict[str, float]:
     if events is None:
-        return {"ep_mum": 0.0, "mup_em": 0.0, "ee_ss": 0.0}
+        return {"ep_mum": 0.0, "mup_em": 0.0, "ee_ss": 0.0, "mumu_ss": 0.0}
     masks = control_region_masks(events)
     return {name: yield_mc(events[mask]) for name, mask in masks.items()}
 
@@ -1299,6 +1310,16 @@ def collect_channel_control_samples(control_samples: dict, lepton: str) -> tuple
             mc_events[sample] = control_samples[k]
     return data_events, mc_events
 
+def clip_value(x: float, clip_negative: bool) -> float:
+    return max(float(x), 0.0) if clip_negative else float(x)
+
+def wrong_charge_region_name(lepton: str) -> str:
+    if lepton == "mu":
+        return "mumu_ss"
+    if lepton == "e":
+        return "ee_ss"
+    raise ValueError(f"Unsupported channel for wrong_charge estimator: {lepton!r}")
+
 def save_additional_bkg_plot(df: pd.DataFrame, out_path: Path, title: str) -> None:
     fig, ax = plt.subplots(figsize=(8, 5))
     x = np.arange(len(df))
@@ -1315,6 +1336,25 @@ def save_additional_bkg_plot(df: pd.DataFrame, out_path: Path, title: str) -> No
     fig.tight_layout()
     save_fig(fig, out_path)
 
+def save_estimator_plot(df: pd.DataFrame, out_path: Path, title: str, selected_method: str) -> None:
+    fig, ax = plt.subplots(figsize=(9, 5))
+    x = np.arange(len(df))
+    w = 0.35
+    ax.bar(x - w / 2.0, df["estimate_raw"].values, width=w, label="estimate_raw")
+    ax.bar(x + w / 2.0, df["estimate_clipped"].values, width=w, label="estimate_clipped")
+    ax.axhline(0.0, color="black", linewidth=1.0)
+
+    labels = []
+    for m in df["method"].tolist():
+        labels.append(f"{m}*" if m == selected_method else m)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=15, ha="right")
+    ax.set_ylabel("estimated additional background events")
+    ax.set_title(title)
+    ax.legend()
+    fig.tight_layout()
+    save_fig(fig, out_path)
+
 def additional_data_driven_background_study(control_samples: dict,
                                             lepton: str,
                                             nominal_sigma: dict,
@@ -1325,11 +1365,15 @@ def additional_data_driven_background_study(control_samples: dict,
                                             best_etc: float,
                                             outdir: Path) -> dict:
     """
-    Channel-specific additional background estimate using data-MC residuals
+    Channel-symmetric additional background estimators using data-MC residuals
     in final-cut control regions.
     """
     add_cfg = SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]
     outdir.mkdir(parents=True, exist_ok=True)
+    method = str(add_cfg["METHOD"]).strip().lower()
+    allowed_methods = {"none", "wrong_flavour", "wrong_charge", "both_average", "both_sum"}
+    if method not in allowed_methods:
+        raise ValueError(f"Unknown ADDITIONAL_DATA_DRIVEN_BKG.METHOD={method!r}. Allowed: {sorted(allowed_methods)}")
 
     selected = {
         k: apply_selection(
@@ -1344,54 +1388,92 @@ def additional_data_driven_background_study(control_samples: dict,
     data_events, mc_events = collect_channel_control_samples(selected, lepton)
 
     data_counts = region_counts(data_events)
-    mc_counts = {"ep_mum": 0.0, "mup_em": 0.0, "ee_ss": 0.0}
+    mc_counts = {"ep_mum": 0.0, "mup_em": 0.0, "ee_ss": 0.0, "mumu_ss": 0.0}
     for ev in mc_events.values():
         y = region_weighted_yields(ev)
         for region in mc_counts:
             mc_counts[region] += y[region]
 
     clip_negative = bool(add_cfg["CLIP_NEGATIVE_TO_ZERO"])
-    table_rows = []
-    estimator_label = ""
+    residuals = {k: data_counts[k] - mc_counts[k] for k in data_counts}
+    clipped_residuals = {k: clip_value(v, clip_negative) for k, v in residuals.items()}
 
-    if lepton == "mu":
-        residual_ep_mum = data_counts["ep_mum"] - mc_counts["ep_mum"]
-        residual_mup_em = data_counts["mup_em"] - mc_counts["mup_em"]
-        clipped_ep_mum = max(residual_ep_mum, 0.0) if clip_negative else residual_ep_mum
-        clipped_mup_em = max(residual_mup_em, 0.0) if clip_negative else residual_mup_em
+    region_rows = []
+    for region in ["ep_mum", "mup_em", "ee_ss", "mumu_ss"]:
+        region_rows.append({
+            "region": region,
+            "N_data": data_counts[region],
+            "N_MC": mc_counts[region],
+            "residual": residuals[region],
+            "clipped_residual": clipped_residuals[region],
+        })
+    df_regions = pd.DataFrame(region_rows, columns=["region", "N_data", "N_MC", "residual", "clipped_residual"])
 
-        avg_data = 0.5 * (data_counts["ep_mum"] + data_counts["mup_em"])
-        avg_mc = 0.5 * (mc_counts["ep_mum"] + mc_counts["mup_em"])
-        avg_residual = 0.5 * (residual_ep_mum + residual_mup_em)
-        avg_clipped = max(avg_residual, 0.0) if clip_negative else avg_residual
+    wf_raw = 0.5 * (residuals["ep_mum"] + residuals["mup_em"])
+    wc_region = wrong_charge_region_name(lepton)
+    wc_raw = residuals[wc_region]
+    both_avg_raw = 0.5 * (wf_raw + wc_raw)
+    both_sum_raw = wf_raw + wc_raw
 
-        table_rows = [
-            {"region": "ep_mum", "N_data": data_counts["ep_mum"], "N_MC": mc_counts["ep_mum"],
-             "residual": residual_ep_mum, "clipped_residual": clipped_ep_mum},
-            {"region": "mup_em", "N_data": data_counts["mup_em"], "N_MC": mc_counts["mup_em"],
-             "residual": residual_mup_em, "clipped_residual": clipped_mup_em},
-            {"region": "avg", "N_data": avg_data, "N_MC": avg_mc,
-             "residual": avg_residual, "clipped_residual": avg_clipped},
-        ]
-        applied_extra_background = avg_clipped
-        estimator_label = "N_extra_bkg_mumu = [(Data-MC)(e+mu-) + (Data-MC)(mu+e-)] / 2"
-    elif lepton == "e":
-        residual_ee_ss = data_counts["ee_ss"] - mc_counts["ee_ss"]
-        clipped_ee_ss = max(residual_ee_ss, 0.0) if clip_negative else residual_ee_ss
-        table_rows = [
-            {"region": "ee_ss", "N_data": data_counts["ee_ss"], "N_MC": mc_counts["ee_ss"],
-             "residual": residual_ee_ss, "clipped_residual": clipped_ee_ss},
-        ]
-        applied_extra_background = clipped_ee_ss
-        estimator_label = "N_extra_bkg_ee = (Data-MC)(ee SS)"
-    else:
-        raise ValueError(f"Unsupported channel for additional background estimate: {lepton!r}")
+    estimator_map = {
+        "none": {"label": "No additional estimator applied", "raw": 0.0},
+        "wrong_flavour": {"label": "N_WF = [(Data-MC)(e+mu-) + (Data-MC)(mu+e-)] / 2", "raw": wf_raw},
+        "wrong_charge": {"label": f"N_WC = (Data-MC)({wc_region})", "raw": wc_raw},
+        "both_average": {"label": "N_both = (N_WF + N_WC) / 2", "raw": both_avg_raw},
+        "both_sum": {"label": "N_both_sum = N_WF + N_WC (debug/comparison)", "raw": both_sum_raw},
+    }
+    for m in estimator_map:
+        estimator_map[m]["clipped"] = clip_value(estimator_map[m]["raw"], clip_negative)
 
-    df = pd.DataFrame(table_rows, columns=["region", "N_data", "N_MC", "residual", "clipped_residual"])
+    estimator_rows = []
+    for m in ["none", "wrong_flavour", "wrong_charge", "both_average", "both_sum"]:
+        estimator_rows.append({
+            "method": m,
+            "estimate_raw": estimator_map[m]["raw"],
+            "estimate_clipped": estimator_map[m]["clipped"],
+            "description": estimator_map[m]["label"],
+        })
+    df_estimators = pd.DataFrame(
+        estimator_rows,
+        columns=["method", "estimate_raw", "estimate_clipped", "description"],
+    )
+
+    selected_est = estimator_map[method]
+    applied_extra_background = selected_est["clipped"]
+    selected_estimator_label = selected_est["label"]
+
+    comparison_sigma = {}
+    for m in ["wrong_flavour", "wrong_charge", "both_average", "both_sum"]:
+        sigma_cmp = compute_sigma(
+            plot_OS=plot_OS,
+            cfg=cfg,
+            produced_event_count_fn=produced_event_count_fn,
+            mass_window=SETTINGS["MASS_WINDOW"],
+            ptcone_max=best_ptc,
+            etcone_max=best_etc,
+            require_both=SETTINGS["REQUIRE_BOTH_ISO"],
+            extra_bkg=float(estimator_map[m]["clipped"]),
+        )
+        comparison_sigma[m] = {
+            "extra_bkg": float(estimator_map[m]["clipped"]),
+            "sigma_pb": sigma_cmp["sigma_pb"],
+            "sigma_shift_pb": sigma_cmp["sigma_pb"] - nominal_sigma["sigma_pb"],
+        }
+    sigma_if_applied = []
+    sigma_shift_if_applied = []
+    for m in df_estimators["method"].tolist():
+        if m == "none":
+            sigma_if_applied.append(nominal_sigma["sigma_pb"])
+            sigma_shift_if_applied.append(0.0)
+        else:
+            sigma_if_applied.append(comparison_sigma[m]["sigma_pb"])
+            sigma_shift_if_applied.append(comparison_sigma[m]["sigma_shift_pb"])
+    df_estimators["sigma_pb_if_applied"] = sigma_if_applied
+    df_estimators["sigma_shift_pb_if_applied"] = sigma_shift_if_applied
 
     sigma_with_additional_bkg = None
     sigma_shift_pb = None
-    if add_cfg["APPLY_TO_SIGMA"]:
+    if add_cfg["APPLY_TO_SIGMA"] and method != "none":
         sigma_with_additional_bkg = compute_sigma(
             plot_OS=plot_OS,
             cfg=cfg,
@@ -1406,8 +1488,9 @@ def additional_data_driven_background_study(control_samples: dict,
 
     result = {
         "channel": lepton,
-        "method": "channel_specific_data_minus_mc_residual",
-        "estimator": estimator_label,
+        "method_family": "symmetric_data_minus_mc_residual",
+        "selected_method": method,
+        "selected_estimator": selected_estimator_label,
         "final_cuts": {
             "mass_window": list(SETTINGS["MASS_WINDOW"]),
             "ptcone_max": best_ptc,
@@ -1415,17 +1498,23 @@ def additional_data_driven_background_study(control_samples: dict,
             "require_both_iso": SETTINGS["REQUIRE_BOTH_ISO"],
         },
         "settings": {
+            "method": method,
             "clip_negative_to_zero": clip_negative,
             "apply_to_sigma": bool(add_cfg["APPLY_TO_SIGMA"]),
             "control_trigger_mode": add_cfg["CONTROL_TRIGGER_MODE"],
             "use_control_tight_parquet": bool(add_cfg["USE_CONTROL_TIGHT_PARQUET"]),
         },
+        "wrong_charge_region_for_channel": wc_region,
         "mc_samples_included": sorted(mc_events.keys()),
         "control_counts": {
             "N_data": data_counts,
             "N_MC": mc_counts,
+            "residual": residuals,
+            "clipped_residual": clipped_residuals,
         },
-        "table": df.to_dict(orient="records"),
+        "regions_table": df_regions.to_dict(orient="records"),
+        "estimators_table": df_estimators.to_dict(orient="records"),
+        "comparison_sigma_if_applied": comparison_sigma,
         "applied_extra_background": applied_extra_background,
         "nominal_sigma_pb": nominal_sigma["sigma_pb"],
         "sigma_with_additional_bkg": sigma_with_additional_bkg,
@@ -1433,34 +1522,49 @@ def additional_data_driven_background_study(control_samples: dict,
     }
 
     if add_cfg["SAVE_TABLES"]:
-        df.to_csv(outdir / f"{lepton}_additional_data_driven_bkg.csv", index=False)
+        df_regions.to_csv(outdir / f"{lepton}_additional_data_driven_bkg_regions.csv", index=False)
+        df_estimators.to_csv(outdir / f"{lepton}_additional_data_driven_bkg_estimators.csv", index=False)
 
     if add_cfg["SAVE_PLOTS"]:
         save_additional_bkg_plot(
-            df,
-            outdir / f"{lepton}_additional_data_driven_bkg.png",
-            title=f"{lepton}: data-driven additional background (final control cuts)",
+            df_regions,
+            outdir / f"{lepton}_additional_data_driven_bkg_regions.png",
+            title=f"{lepton}: control-region data/MC residuals (final cuts)",
+        )
+        save_estimator_plot(
+            df_estimators,
+            outdir / f"{lepton}_additional_data_driven_bkg_estimators.png",
+            title=f"{lepton}: additional background estimators",
+            selected_method=method,
         )
 
     summary_lines = [
         f"Channel: {lepton}",
-        "Method: professor channel-specific data-driven additional background",
-        f"Estimator: {estimator_label}",
+        "Method family: symmetric data-driven additional background",
+        f"Selected method: {method}",
+        f"Selected estimator: {selected_estimator_label}",
+        f"Wrong-charge region for this channel: {wc_region}",
         f"Final cuts: mass in ({SETTINGS['MASS_WINDOW'][0]:.1f}, {SETTINGS['MASS_WINDOW'][1]:.1f}) GeV, "
         f"ptcone<{best_ptc:.3f}, etcone<{best_etc:.3f}, require_both_iso={SETTINGS['REQUIRE_BOTH_ISO']}",
         f"Clip negative residual to zero: {clip_negative}",
         "",
-        "Control-region yields:",
-        df.to_string(index=False),
+        "Control-region yields and residuals:",
+        df_regions.to_string(index=False),
+        "",
+        "Estimator table:",
+        df_estimators.to_string(index=False),
         "",
         f"Applied extra background (after clipping rule): {applied_extra_background:.6f}",
     ]
-    if sigma_with_additional_bkg is not None:
+    if sigma_with_additional_bkg is not None and method != "none":
         summary_lines.append(f"Nominal sigma [pb]: {nominal_sigma['sigma_pb']:.6f}")
         summary_lines.append(f"Sigma with additional background [pb]: {sigma_with_additional_bkg['sigma_pb']:.6f}")
         summary_lines.append(f"Sigma shift [pb]: {sigma_shift_pb:.6f}")
     else:
-        summary_lines.append("APPLY_TO_SIGMA=False, so nominal sigma is unchanged.")
+        if method == "none":
+            summary_lines.append("METHOD=none, so nominal sigma is unchanged.")
+        else:
+            summary_lines.append("APPLY_TO_SIGMA=False, so nominal sigma is unchanged.")
 
     write_text(outdir / f"{lepton}_additional_data_driven_bkg_summary.txt", "\n".join(summary_lines))
 
@@ -1698,6 +1802,7 @@ def run_channel(lepton: str, backend: dict, outdir: Path) -> None:
             outdir=add_dir,
         )
         print(f"\n[{lepton}] === Additional data-driven background estimate ===")
+        print(f"method = {additional_result['selected_method']}")
         print(f"applied extra bkg (after clipping rule) = {additional_result['applied_extra_background']:.6f}")
         if additional_result["sigma_with_additional_bkg"] is not None:
             print(f"sigma_with_additional_bkg = {additional_result['sigma_with_additional_bkg']['sigma_pb']:.6f} pb")
