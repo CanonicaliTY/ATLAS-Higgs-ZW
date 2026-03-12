@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # v2.0 update: refactored final version with notebook-style tight parquet workflow,
-# optional Medium ID consideration, and optional separate data-driven b-bbar-like 
-# background study from data control regions.
+# optional Medium ID consideration, and optional separate data-driven
+# additional-background study from control regions.
 
 """
 ATLAS Open Data (Manchester 3rd year lab): Z -> ll dilepton analysis runner
 Refactored final version with:
   - notebook-style tight parquet workflow (preselect/write, then read back)
   - optional Medium ID consideration
-  - optional, separate data-driven b-bbar-like background study from data control regions
+  - optional, separate data-driven additional-background study from control regions
 
 Main workflow (per chosen lepton channel):
   1) Build / reuse a channel-specific "main tight parquet" with baseline preselection.
@@ -17,12 +17,9 @@ Main workflow (per chosen lepton channel):
   3) Make BEFORE plots (leading pT, m_ll) for OS & SS.
   4) Scan isolation cuts (or use fixed cuts).
   5) Make AFTER plots, cutflow, and cut-and-count cross section.
-  6) Optionally build / reuse a separate data-only control tight parquet and evaluate
-     three independent data-driven control-region estimates:
-       - wrong flavour (eμ, OS)
-       - wrong charge (same flavour as target channel, SS)
-       - both wrong (eμ, SS)
-     plus their average. This module is kept separate from the main workflow by default.
+  6) Optionally build / reuse a separate control tight parquet (data + MC) and evaluate
+     a channel-specific data-driven additional-background estimate. This module is kept
+     separate from the main workflow by default.
 
 This design follows the lab notebook's "Write the Data to Disk" methodology:
 write a tighter preselection to parquet, then read it back with a smaller set of variables and
@@ -101,7 +98,7 @@ SETTINGS = {
             "charge_product",
         ],
 
-        # keep fields in the DATA-ONLY control tight parquet for the optional b-bbar study
+        # keep fields in the control tight parquet for the optional data-driven study
         "CONTROL_KEEP_FIELDS": [
             "lep_pt",
             "lep_type",
@@ -116,29 +113,29 @@ SETTINGS = {
         "WRITE_METADATA": True,
     },
 
-    # Purely additional, separate data-driven control-region study
-    "ADDITIONAL_BBAR": {
-        "ENABLED": False,  # kept fully separate from the main result unless you turn it on
-        "CONTROL_TRIGGER_MODE": "or",  # "or" / "mu" / "e"
+    # Purely additional, separate data-driven control-region study (professor method)
+    "ADDITIONAL_DATA_DRIVEN_BKG": {
+        "ENABLED": True,
 
-        # transfer factors are intentionally exposed because the teacher's guidance here is exploratory
-        # default = unity transfer, i.e. count-level comparison / subtraction study
-        "TRANSFER_FACTORS": {
-            "wrong_flavour": 1.0,
-            "wrong_charge": 1.0,
-            "both_wrong": 1.0,
-        },
+        # False -> study only, do not alter nominal sigma
+        # True  -> compute an extra sigma_with_additional_bkg entry
+        "APPLY_TO_SIGMA": False,
 
-        # if not None, also compute a sigma variant with this additional estimate applied:
-        # None / "wrong_flavour" / "wrong_charge" / "both_wrong" / "avg3"
-        "APPLY_METHOD": "wrong_charge",
+        # if residual < 0, clip applied extra background to 0
+        "CLIP_NEGATIVE_TO_ZERO": True,
 
-        # combine with the main MC background as an *additional* poorly-modelled contribution
-        "ADD_TO_MC_BACKGROUND": True,
+        # control-region tight parquet options
+        "USE_CONTROL_TIGHT_PARQUET": True,
+        "FORCE_REBUILD": False,
+
+        # control trigger mode for control sample build
+        # "or" / "mu" / "e"
+        "CONTROL_TRIGGER_MODE": "or",
 
         # optional outputs
         "SAVE_TABLES": True,
         "SAVE_PLOTS": True,
+        "SAVE_JSON": True,
     },
 
     # Plot config
@@ -480,7 +477,11 @@ def baseline_main_preselection(data: ak.Array, lepton: str, pt_min: float,
     data = add_charge_product(data)
     return data
 
-def baseline_control_preselection(data: ak.Array, pt_min: float, trigger_mode: str) -> ak.Array:
+def baseline_control_preselection(data: ak.Array,
+                                  pt_min: float,
+                                  trigger_mode: str,
+                                  apply_medium_id: bool,
+                                  medium_field: str | None) -> ak.Array:
     data = data[data["lep_n"] == 2]
 
     # keep only e / mu dileptons (ignore tau-like or anything else)
@@ -500,6 +501,9 @@ def baseline_control_preselection(data: ak.Array, pt_min: float, trigger_mode: s
         data = data[data["trigE"]]
     else:
         raise ValueError(f"Unknown CONTROL_TRIGGER_MODE: {trigger_mode}")
+
+    if apply_medium_id and medium_field is not None and medium_field in data.fields:
+        data = data[data[medium_field][:, 0] & data[medium_field][:, 1]]
 
     data = add_mass(data)
     data = add_charge_product(data)
@@ -529,17 +533,25 @@ def make_main_build_cut(lepton: str,
 
     return _cut
 
-def make_control_build_cut(required_input_fields: list[str] | None = None):
+def make_control_build_cut(apply_medium_id: bool,
+                           medium_field: str | None,
+                           required_input_fields: list[str] | None = None):
     keep = control_build_keep_fields()
     if required_input_fields is not None:
         for f in required_input_fields:
             if f not in keep:
                 keep.append(f)
     pt_min = SETTINGS["PT_MIN"]
-    trigger_mode = SETTINGS["ADDITIONAL_BBAR"]["CONTROL_TRIGGER_MODE"]
+    trigger_mode = SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["CONTROL_TRIGGER_MODE"]
 
     def _cut(data: ak.Array) -> ak.Array:
-        d = baseline_control_preselection(data, pt_min=pt_min, trigger_mode=trigger_mode)
+        d = baseline_control_preselection(
+            data,
+            pt_min=pt_min,
+            trigger_mode=trigger_mode,
+            apply_medium_id=apply_medium_id,
+            medium_field=medium_field,
+        )
         return slim_keep_fields(d, keep)
 
     return _cut
@@ -601,8 +613,26 @@ def control_tight_tag() -> str:
     manual = SETTINGS["TIGHT_PARQUET"]["CONTROL_TAG"]
     if manual:
         return str(manual)
-    trig = SETTINGS["ADDITIONAL_BBAR"]["CONTROL_TRIGGER_MODE"]
-    return f"control2lep_pt{label_float(SETTINGS['PT_MIN'])}_trig_{trig}"
+    trig = SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["CONTROL_TRIGGER_MODE"]
+    mid = medium_id_mode()
+    return f"control2lep_pt{label_float(SETTINGS['PT_MIN'])}_trig_{trig}_mid_{mid}"
+
+def control_sample_codes_for_build() -> list[str]:
+    """
+    Build one common control sample set that includes Data plus MC for all requested channels.
+    """
+    ordered = []
+    for lep in SETTINGS["LEPTONS"]:
+        if lep not in CHANNELS:
+            raise KeyError(f"Unknown lepton channel in SETTINGS['LEPTONS']: {lep!r}")
+        for sample in CHANNELS[lep]["string_codes"]:
+            if sample not in ordered:
+                ordered.append(sample)
+    if "2to4lep" not in ordered:
+        ordered.insert(0, "2to4lep")
+    if len(ordered) == 0:
+        ordered = ["2to4lep"]
+    return ordered
 
 def tight_root(kind: str, lepton: str | None = None) -> Path:
     base = (Path(__file__).resolve().parent / SETTINGS["TIGHT_PARQUET"]["ROOT_DIR"]).resolve()
@@ -754,49 +784,79 @@ def ensure_main_tight_parquet(lepton: str, backend: dict) -> Path:
 
 def ensure_control_tight_parquet(backend: dict) -> Path:
     root = tight_root("control")
-    force = SETTINGS["TIGHT_PARQUET"]["FORCE_REBUILD"]
+    force = SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["FORCE_REBUILD"]
 
     if root.exists() and manifest_complete(root) and not force:
         return root
 
     reset_root_for_rebuild(root)
 
-    sample = "2to4lep"
-    raw_fields = set(available_raw_fields(sample, backend))
-    needed_raw = [v for v in RAW_BUILD_VARS_COMMON if v in raw_fields]
+    build_fraction = SETTINGS["TIGHT_PARQUET"]["BUILD_FRACTION"]
+    sample_rows = []
+    subdirs = []
 
-    cut_function = make_control_build_cut(required_input_fields=needed_raw)
+    for sample in control_sample_codes_for_build():
+        raw_fields = set(available_raw_fields(sample, backend))
+        medium_field = choose_medium_field(sample, backend)
+        apply_mid, reason = should_apply_medium_id(sample, medium_field)
 
-    print(f"[control] building data-only control tight parquet -> {root}")
-    subdir_name = build_one_sample_to_root(
-        sample_code=sample,
-        root=root,
-        read_vars=needed_raw,
-        cut_function=cut_function,
-        backend=backend,
-        fraction=SETTINGS["TIGHT_PARQUET"]["BUILD_FRACTION"],
-    )
+        needed_raw = [v for v in RAW_BUILD_VARS_COMMON if v in raw_fields]
+        if medium_field is not None and medium_field not in needed_raw:
+            needed_raw.append(medium_field)
+
+        cut_function = make_control_build_cut(
+            apply_medium_id=apply_mid,
+            medium_field=medium_field,
+            required_input_fields=needed_raw,
+        )
+
+        print(f"[control] building control tight parquet for {sample} -> {root}")
+        subdir_name = build_one_sample_to_root(
+            sample_code=sample,
+            root=root,
+            read_vars=needed_raw,
+            cut_function=cut_function,
+            backend=backend,
+            fraction=build_fraction,
+        )
+
+        sample_rows.append({
+            "sample": sample,
+            "output_subdir": subdir_name,
+            "medium_id_field": medium_field,
+            "apply_medium_id": apply_mid,
+            "apply_medium_id_reason": reason,
+            "read_vars": needed_raw,
+        })
+        if subdir_name is not None:
+            subdirs.append(subdir_name)
 
     manifest = {
         "complete": True,
         "kind": "control",
         "tag": control_tight_tag(),
         "created_at": now_stamp(),
-        "build_fraction": SETTINGS["TIGHT_PARQUET"]["BUILD_FRACTION"],
+        "build_fraction": build_fraction,
         "settings_snapshot": {
             "PT_MIN": SETTINGS["PT_MIN"],
-            "CONTROL_TRIGGER_MODE": SETTINGS["ADDITIONAL_BBAR"]["CONTROL_TRIGGER_MODE"],
+            "MEDIUM_ID": SETTINGS["MEDIUM_ID"],
+            "CONTROL_TRIGGER_MODE": SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["CONTROL_TRIGGER_MODE"],
             "CONTROL_KEEP_FIELDS": control_build_keep_fields(),
+            "ADDITIONAL_DATA_DRIVEN_BKG": {
+                "ENABLED": SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["ENABLED"],
+                "APPLY_TO_SIGMA": SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["APPLY_TO_SIGMA"],
+                "CLIP_NEGATIVE_TO_ZERO": SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["CLIP_NEGATIVE_TO_ZERO"],
+                "USE_CONTROL_TIGHT_PARQUET": SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["USE_CONTROL_TIGHT_PARQUET"],
+                "FORCE_REBUILD": SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["FORCE_REBUILD"],
+                "CONTROL_TRIGGER_MODE": SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["CONTROL_TRIGGER_MODE"],
+            },
         },
-        "subdirs": [subdir_name] if subdir_name is not None else [],
-        "samples": [{
-            "sample": sample,
-            "output_subdir": subdir_name,
-            "read_vars": needed_raw,
-        }],
+        "subdirs": subdirs,
+        "samples": sample_rows,
     }
     if SETTINGS["TIGHT_PARQUET"]["WRITE_METADATA"]:
         write_json(manifest_path(root), manifest)
+        pd.DataFrame(sample_rows).to_csv(root / "_medium_id_usage.csv", index=False)
 
     return root
 
@@ -856,8 +916,9 @@ def load_main_events(lepton: str, sign: str, backend: dict) -> dict:
     cut_function = make_raw_sign_cut(lepton, sign)
     return analysis_parquet(raw_read_vars, cfg["string_codes"], fraction=SETTINGS["FRACTION"], cut_function=cut_function)
 
-def load_control_data(backend: dict) -> dict:
-    if SETTINGS["USE_TIGHT_PARQUET"]:
+def load_control_samples(backend: dict) -> dict:
+    use_control_tight = SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["USE_CONTROL_TIGHT_PARQUET"]
+    if use_control_tight:
         root = ensure_control_tight_parquet(backend)
         man = read_manifest(root)
         subdirs = man["subdirs"]
@@ -870,15 +931,33 @@ def load_control_data(backend: dict) -> dict:
             cut_function=None,
         )
 
-    # Raw fallback (data only)
+    # Raw fallback (Data + channel-related MC), kept for debugging or when control tight parquet is disabled.
+    validate_read_variables = backend["validate_read_variables"]
     analysis_parquet = backend["analysis_parquet"]
-    needed = [v for v in RAW_BUILD_VARS_COMMON if v in set(available_raw_fields("2to4lep", backend))]
-    return analysis_parquet(
-        needed,
-        ["2to4lep"],
-        fraction=SETTINGS["FRACTION"],
-        cut_function=make_control_build_cut(required_input_fields=needed),
-    )
+    out = {}
+    for sample in control_sample_codes_for_build():
+        raw_fields = set(available_raw_fields(sample, backend))
+        medium_field = choose_medium_field(sample, backend)
+        apply_mid, _ = should_apply_medium_id(sample, medium_field)
+
+        needed = [v for v in RAW_BUILD_VARS_COMMON if v in raw_fields]
+        if medium_field is not None and medium_field not in needed:
+            needed.append(medium_field)
+
+        read_vars = validate_read_variables([sample], needed)
+        cut_function = make_control_build_cut(
+            apply_medium_id=apply_mid,
+            medium_field=medium_field,
+            required_input_fields=read_vars,
+        )
+        d = analysis_parquet(
+            read_vars,
+            [sample],
+            fraction=SETTINGS["FRACTION"],
+            cut_function=cut_function,
+        )
+        out.update(d)
+    return out
 
 # ============================================================
 # 7) Raw fallback sign cuts (same as old direct workflow)
@@ -1166,138 +1245,228 @@ def estimate_syst(plot_OS: dict, cfg: dict, produced_event_count_fn,
     return syst, sigmas
 
 # ============================================================
-# 12) Additional, separate data-driven b-bbar-like study
+# 12) Additional, separate data-driven background estimate (professor method)
 # ============================================================
 
-def control_region_masks(events: ak.Array, lepton: str) -> dict[str, ak.Array]:
+def control_region_masks(events: ak.Array) -> dict[str, ak.Array]:
     """
-    Independent control regions relative to the same-flavour OS signal definition:
-      wrong_flavour : opposite-flavour, OS   (eμ / μe, opposite sign)
-      wrong_charge  : target same-flavour, SS
-      both_wrong    : opposite-flavour, SS
+    Build explicit control-region masks from lep_type / lep_charge after final cuts.
+    Definitions:
+      - ep_mum: (e+, mu-)
+      - mup_em: (mu+, e-)
+      - ee_ss:  (ee, same sign)
     """
-    cfg = CHANNELS[lepton]
     t0 = events["lep_type"][:, 0]
     t1 = events["lep_type"][:, 1]
-    type_sum = t0 + t1
-    opposite_flavour = ((t0 == 11) & (t1 == 13)) | ((t0 == 13) & (t1 == 11))
-    target_same_flavour = (type_sum == cfg["type_sum"])
-    qprod = events["charge_product"]
-    os_mask = (qprod < 0)
-    ss_mask = (qprod > 0)
+    q0 = events["lep_charge"][:, 0]
+    q1 = events["lep_charge"][:, 1]
+    charge_product = q0 * q1
 
     return {
-        "wrong_flavour": events[opposite_flavour & os_mask],
-        "wrong_charge": events[target_same_flavour & ss_mask],
-        "both_wrong": events[opposite_flavour & ss_mask],
+        "ep_mum": (t0 == 11) & (q0 > 0) & (t1 == 13) & (q1 < 0),
+        "mup_em": (t0 == 13) & (q0 > 0) & (t1 == 11) & (q1 < 0),
+        "ee_ss": (t0 == 11) & (t1 == 11) & (charge_product > 0),
     }
 
-def bbar_additional_study(control_data_events: ak.Array,
-                          lepton: str,
-                          nominal_sigma: dict,
-                          plot_OS: dict,
-                          cfg: dict,
-                          produced_event_count_fn,
-                          best_ptc: float,
-                          best_etc: float,
-                          outdir: Path) -> dict:
-    """
-    Purely additional / exploratory.
-    It does NOT affect the main result unless SETTINGS["ADDITIONAL_BBAR"]["APPLY_METHOD"] is set.
+def region_counts(events: ak.Array | None) -> dict[str, float]:
+    if events is None:
+        return {"ep_mum": 0.0, "mup_em": 0.0, "ee_ss": 0.0}
+    masks = control_region_masks(events)
+    return {name: float(len(events[mask])) for name, mask in masks.items()}
 
-    Current default interpretation:
-      - Count data control-region events after the same mass+iso selection.
-      - Convert each into an additional background estimate with an adjustable transfer factor
-        (default unity, because the teacher's guidance here is exploratory / can be refined later).
-      - Compare the effect of subtracting each estimate separately, and also their average.
+def region_weighted_yields(events: ak.Array | None) -> dict[str, float]:
+    if events is None:
+        return {"ep_mum": 0.0, "mup_em": 0.0, "ee_ss": 0.0}
+    masks = control_region_masks(events)
+    return {name: yield_mc(events[mask]) for name, mask in masks.items()}
+
+def collect_channel_control_samples(control_samples: dict, lepton: str) -> tuple[ak.Array, dict[str, ak.Array]]:
     """
+    Pick Data + channel-relevant MC from loaded control samples.
+    """
+    cfg = CHANNELS[lepton]
+    data_key = get_sample_key_by_prefix(control_samples, "2to4lep")
+    if data_key is None:
+        raise RuntimeError("Could not find data sample in control samples (expected prefix '2to4lep').")
+    data_events = control_samples[data_key]
+
+    mc_events = {}
+    for sample in cfg["string_codes"]:
+        if is_data_sample(sample):
+            continue
+        k = get_sample_key_by_prefix(control_samples, sample)
+        if k is not None:
+            mc_events[sample] = control_samples[k]
+    return data_events, mc_events
+
+def save_additional_bkg_plot(df: pd.DataFrame, out_path: Path, title: str) -> None:
+    fig, ax = plt.subplots(figsize=(8, 5))
+    x = np.arange(len(df))
+    w = 0.25
+    ax.bar(x - w, df["N_data"].values, width=w, label="N_data")
+    ax.bar(x, df["N_MC"].values, width=w, label="N_MC")
+    ax.bar(x + w, df["residual"].values, width=w, label="residual")
+    ax.axhline(0.0, color="black", linewidth=1.0)
+    ax.set_xticks(x)
+    ax.set_xticklabels(df["region"].tolist())
+    ax.set_ylabel("events")
+    ax.set_title(title)
+    ax.legend()
+    fig.tight_layout()
+    save_fig(fig, out_path)
+
+def additional_data_driven_background_study(control_samples: dict,
+                                            lepton: str,
+                                            nominal_sigma: dict,
+                                            plot_OS: dict,
+                                            cfg: dict,
+                                            produced_event_count_fn,
+                                            best_ptc: float,
+                                            best_etc: float,
+                                            outdir: Path) -> dict:
+    """
+    Channel-specific additional background estimate using data-MC residuals
+    in final-cut control regions.
+    """
+    add_cfg = SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]
     outdir.mkdir(parents=True, exist_ok=True)
 
-    final_sel = apply_selection(
-        control_data_events,
-        mass_window=SETTINGS["MASS_WINDOW"],
-        ptcone_max=best_ptc,
-        etcone_max=best_etc,
-        require_both=SETTINGS["REQUIRE_BOTH_ISO"],
-    )
-
-    regions = control_region_masks(final_sel, lepton)
-    tf = SETTINGS["ADDITIONAL_BBAR"]["TRANSFER_FACTORS"]
-
-    rows = []
-    raw_counts = {}
-    for name, ev in regions.items():
-        n = float(len(ev))
-        raw_counts[name] = n
-        est = n * float(tf[name])
-        sigma_alt = compute_sigma(
-            plot_OS, cfg, produced_event_count_fn,
-            SETTINGS["MASS_WINDOW"], best_ptc, best_etc, SETTINGS["REQUIRE_BOTH_ISO"],
-            extra_bkg=(est if SETTINGS["ADDITIONAL_BBAR"]["ADD_TO_MC_BACKGROUND"] else 0.0),
+    selected = {
+        k: apply_selection(
+            v,
+            mass_window=SETTINGS["MASS_WINDOW"],
+            ptcone_max=best_ptc,
+            etcone_max=best_etc,
+            require_both=SETTINGS["REQUIRE_BOTH_ISO"],
         )
-        rows.append({
-            "method": name,
-            "control_count": n,
-            "transfer_factor": float(tf[name]),
-            "estimated_additional_bkg": est,
-            "sigma_pb_if_applied": sigma_alt["sigma_pb"],
-            "sigma_shift_pb": sigma_alt["sigma_pb"] - nominal_sigma["sigma_pb"],
-        })
+        for k, v in control_samples.items()
+    }
+    data_events, mc_events = collect_channel_control_samples(selected, lepton)
 
-    avg3 = float(np.mean([raw_counts["wrong_flavour"] * tf["wrong_flavour"],
-                          raw_counts["wrong_charge"] * tf["wrong_charge"],
-                          raw_counts["both_wrong"] * tf["both_wrong"]]))
-    sigma_avg3 = compute_sigma(
-        plot_OS, cfg, produced_event_count_fn,
-        SETTINGS["MASS_WINDOW"], best_ptc, best_etc, SETTINGS["REQUIRE_BOTH_ISO"],
-        extra_bkg=(avg3 if SETTINGS["ADDITIONAL_BBAR"]["ADD_TO_MC_BACKGROUND"] else 0.0),
-    )
-    rows.append({
-        "method": "avg3",
-        "control_count": np.mean([raw_counts["wrong_flavour"], raw_counts["wrong_charge"], raw_counts["both_wrong"]]),
-        "transfer_factor": np.nan,
-        "estimated_additional_bkg": avg3,
-        "sigma_pb_if_applied": sigma_avg3["sigma_pb"],
-        "sigma_shift_pb": sigma_avg3["sigma_pb"] - nominal_sigma["sigma_pb"],
-    })
+    data_counts = region_counts(data_events)
+    mc_counts = {"ep_mum": 0.0, "mup_em": 0.0, "ee_ss": 0.0}
+    for ev in mc_events.values():
+        y = region_weighted_yields(ev)
+        for region in mc_counts:
+            mc_counts[region] += y[region]
 
-    df = pd.DataFrame(rows)
+    clip_negative = bool(add_cfg["CLIP_NEGATIVE_TO_ZERO"])
+    table_rows = []
+    estimator_label = ""
 
-    if SETTINGS["ADDITIONAL_BBAR"]["SAVE_TABLES"]:
-        df.to_csv(outdir / f"{lepton}_additional_bbar_estimates.csv", index=False)
+    if lepton == "mu":
+        residual_ep_mum = data_counts["ep_mum"] - mc_counts["ep_mum"]
+        residual_mup_em = data_counts["mup_em"] - mc_counts["mup_em"]
+        clipped_ep_mum = max(residual_ep_mum, 0.0) if clip_negative else residual_ep_mum
+        clipped_mup_em = max(residual_mup_em, 0.0) if clip_negative else residual_mup_em
 
-    if SETTINGS["ADDITIONAL_BBAR"]["SAVE_PLOTS"]:
-        fig, ax = plt.subplots(figsize=(8, 5))
-        ax.bar(df["method"], df["estimated_additional_bkg"])
-        ax.set_ylabel("estimated additional background events")
-        ax.set_title(f"{lepton}: additional data-driven b-bbar-like estimates")
-        fig.tight_layout()
-        fig.savefig(outdir / f"{lepton}_additional_bbar_estimates.png", dpi=150, bbox_inches="tight")
-        plt.close(fig)
+        avg_data = 0.5 * (data_counts["ep_mum"] + data_counts["mup_em"])
+        avg_mc = 0.5 * (mc_counts["ep_mum"] + mc_counts["mup_em"])
+        avg_residual = 0.5 * (residual_ep_mum + residual_mup_em)
+        avg_clipped = max(avg_residual, 0.0) if clip_negative else avg_residual
 
-    apply_method = SETTINGS["ADDITIONAL_BBAR"]["APPLY_METHOD"]
-    applied = None
-    if apply_method is not None:
-        row = df[df["method"] == apply_method]
-        if len(row) != 1:
-            raise ValueError(f"APPLY_METHOD={apply_method!r} not found in additional bbar table")
-        applied = row.iloc[0].to_dict()
+        table_rows = [
+            {"region": "ep_mum", "N_data": data_counts["ep_mum"], "N_MC": mc_counts["ep_mum"],
+             "residual": residual_ep_mum, "clipped_residual": clipped_ep_mum},
+            {"region": "mup_em", "N_data": data_counts["mup_em"], "N_MC": mc_counts["mup_em"],
+             "residual": residual_mup_em, "clipped_residual": clipped_mup_em},
+            {"region": "avg", "N_data": avg_data, "N_MC": avg_mc,
+             "residual": avg_residual, "clipped_residual": avg_clipped},
+        ]
+        applied_extra_background = avg_clipped
+        estimator_label = "N_extra_bkg_mumu = [(Data-MC)(e+mu-) + (Data-MC)(mu+e-)] / 2"
+    elif lepton == "e":
+        residual_ee_ss = data_counts["ee_ss"] - mc_counts["ee_ss"]
+        clipped_ee_ss = max(residual_ee_ss, 0.0) if clip_negative else residual_ee_ss
+        table_rows = [
+            {"region": "ee_ss", "N_data": data_counts["ee_ss"], "N_MC": mc_counts["ee_ss"],
+             "residual": residual_ee_ss, "clipped_residual": clipped_ee_ss},
+        ]
+        applied_extra_background = clipped_ee_ss
+        estimator_label = "N_extra_bkg_ee = (Data-MC)(ee SS)"
+    else:
+        raise ValueError(f"Unsupported channel for additional background estimate: {lepton!r}")
+
+    df = pd.DataFrame(table_rows, columns=["region", "N_data", "N_MC", "residual", "clipped_residual"])
+
+    sigma_with_additional_bkg = None
+    sigma_shift_pb = None
+    if add_cfg["APPLY_TO_SIGMA"]:
+        sigma_with_additional_bkg = compute_sigma(
+            plot_OS=plot_OS,
+            cfg=cfg,
+            produced_event_count_fn=produced_event_count_fn,
+            mass_window=SETTINGS["MASS_WINDOW"],
+            ptcone_max=best_ptc,
+            etcone_max=best_etc,
+            require_both=SETTINGS["REQUIRE_BOTH_ISO"],
+            extra_bkg=applied_extra_background,
+        )
+        sigma_shift_pb = sigma_with_additional_bkg["sigma_pb"] - nominal_sigma["sigma_pb"]
 
     result = {
+        "channel": lepton,
+        "method": "channel_specific_data_minus_mc_residual",
+        "estimator": estimator_label,
+        "final_cuts": {
+            "mass_window": list(SETTINGS["MASS_WINDOW"]),
+            "ptcone_max": best_ptc,
+            "etcone_max": best_etc,
+            "require_both_iso": SETTINGS["REQUIRE_BOTH_ISO"],
+        },
+        "settings": {
+            "clip_negative_to_zero": clip_negative,
+            "apply_to_sigma": bool(add_cfg["APPLY_TO_SIGMA"]),
+            "control_trigger_mode": add_cfg["CONTROL_TRIGGER_MODE"],
+            "use_control_tight_parquet": bool(add_cfg["USE_CONTROL_TIGHT_PARQUET"]),
+        },
+        "mc_samples_included": sorted(mc_events.keys()),
+        "control_counts": {
+            "N_data": data_counts,
+            "N_MC": mc_counts,
+        },
         "table": df.to_dict(orient="records"),
-        "applied_method": apply_method,
-        "applied_row": applied,
-        "note": (
-            "Exploratory additional data-driven study. "
-            "Control-region definitions currently use:\n"
-            "  wrong_flavour = eμ OS,\n"
-            "  wrong_charge = same-flavour SS (target channel),\n"
-            "  both_wrong = eμ SS.\n"
-            "Transfer factors are user-adjustable and default to unity."
-        ),
+        "applied_extra_background": applied_extra_background,
+        "nominal_sigma_pb": nominal_sigma["sigma_pb"],
+        "sigma_with_additional_bkg": sigma_with_additional_bkg,
+        "sigma_shift_pb": sigma_shift_pb,
     }
-    if SETTINGS["SAVE_JSON"]:
-        write_json(outdir / f"{lepton}_additional_bbar_estimates.json", result)
+
+    if add_cfg["SAVE_TABLES"]:
+        df.to_csv(outdir / f"{lepton}_additional_data_driven_bkg.csv", index=False)
+
+    if add_cfg["SAVE_PLOTS"]:
+        save_additional_bkg_plot(
+            df,
+            outdir / f"{lepton}_additional_data_driven_bkg.png",
+            title=f"{lepton}: data-driven additional background (final control cuts)",
+        )
+
+    summary_lines = [
+        f"Channel: {lepton}",
+        "Method: professor channel-specific data-driven additional background",
+        f"Estimator: {estimator_label}",
+        f"Final cuts: mass in ({SETTINGS['MASS_WINDOW'][0]:.1f}, {SETTINGS['MASS_WINDOW'][1]:.1f}) GeV, "
+        f"ptcone<{best_ptc:.3f}, etcone<{best_etc:.3f}, require_both_iso={SETTINGS['REQUIRE_BOTH_ISO']}",
+        f"Clip negative residual to zero: {clip_negative}",
+        "",
+        "Control-region yields:",
+        df.to_string(index=False),
+        "",
+        f"Applied extra background (after clipping rule): {applied_extra_background:.6f}",
+    ]
+    if sigma_with_additional_bkg is not None:
+        summary_lines.append(f"Nominal sigma [pb]: {nominal_sigma['sigma_pb']:.6f}")
+        summary_lines.append(f"Sigma with additional background [pb]: {sigma_with_additional_bkg['sigma_pb']:.6f}")
+        summary_lines.append(f"Sigma shift [pb]: {sigma_shift_pb:.6f}")
+    else:
+        summary_lines.append("APPLY_TO_SIGMA=False, so nominal sigma is unchanged.")
+
+    write_text(outdir / f"{lepton}_additional_data_driven_bkg_summary.txt", "\n".join(summary_lines))
+
+    if add_cfg["SAVE_JSON"] and SETTINGS["SAVE_JSON"]:
+        write_json(outdir / f"{lepton}_additional_data_driven_bkg.json", result)
+
     return result
 
 # ============================================================
@@ -1514,13 +1683,11 @@ def run_channel(lepton: str, backend: dict, outdir: Path) -> None:
 
     # ---- optional additional data-driven study (separate) ----
     additional_result = None
-    if SETTINGS["ADDITIONAL_BBAR"]["ENABLED"]:
-        control_dict = load_control_data(backend)
-        data_key = get_sample_key_by_prefix(control_dict, "2to4lep")
-        control_events = control_dict[data_key]
-        add_dir = outdir / "additional_bbar"
-        additional_result = bbar_additional_study(
-            control_data_events=control_events,
+    if SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["ENABLED"]:
+        control_dict = load_control_samples(backend)
+        add_dir = outdir / "additional_data_driven_bkg"
+        additional_result = additional_data_driven_background_study(
+            control_samples=control_dict,
             lepton=lepton,
             nominal_sigma=sigma_nom,
             plot_OS=plot_OS,
@@ -1530,11 +1697,11 @@ def run_channel(lepton: str, backend: dict, outdir: Path) -> None:
             best_etc=best_etc,
             outdir=add_dir,
         )
-        if additional_result["applied_row"] is not None:
-            row = additional_result["applied_row"]
-            print(f"\n[{lepton}] === Additional data-driven study applied ({row['method']}) ===")
-            print(f"estimated extra bkg = {row['estimated_additional_bkg']:.3f}")
-            print(f"sigma shift         = {row['sigma_shift_pb']:.3f} pb")
+        print(f"\n[{lepton}] === Additional data-driven background estimate ===")
+        print(f"applied extra bkg (after clipping rule) = {additional_result['applied_extra_background']:.6f}")
+        if additional_result["sigma_with_additional_bkg"] is not None:
+            print(f"sigma_with_additional_bkg = {additional_result['sigma_with_additional_bkg']['sigma_pb']:.6f} pb")
+            print(f"sigma shift               = {additional_result['sigma_shift_pb']:.6f} pb")
 
     # ---- write summary ----
     summary_txt = []
@@ -1554,7 +1721,7 @@ def run_channel(lepton: str, backend: dict, outdir: Path) -> None:
     )
     if additional_result is not None:
         summary_txt.append("")
-        summary_txt.append("Additional data-driven b-bbar-like study:")
+        summary_txt.append("Additional data-driven background estimate:")
         summary_txt.append(json.dumps(additional_result, indent=2, default=str))
 
     write_text(outdir / f"{lepton}_summary.txt", "\n".join(summary_txt))
@@ -1570,7 +1737,7 @@ def run_channel(lepton: str, backend: dict, outdir: Path) -> None:
             "syst_pb": syst_pb,
             "lumi_pb": lumi_pb,
             "syst_variations": [{"label": k, "sigma_pb": v} for k, v in syst_list],
-            "additional_bbar": additional_result,
+            "additional_data_driven_bkg": additional_result,
         })
 
 # ============================================================
