@@ -63,18 +63,17 @@
     ],
     "WRITE_METADATA": true
   },
-  "ADDITIONAL_BBAR": {
+  "ADDITIONAL_DATA_DRIVEN_BKG": {
     "ENABLED": true,
+    "METHOD": "wrong_flavour",
+    "APPLY_TO_SIGMA": true,
+    "CLIP_NEGATIVE_TO_ZERO": true,
+    "USE_CONTROL_TIGHT_PARQUET": true,
+    "FORCE_REBUILD": false,
     "CONTROL_TRIGGER_MODE": "or",
-    "TRANSFER_FACTORS": {
-      "wrong_flavour": 1.0,
-      "wrong_charge": 1.0,
-      "both_wrong": 1.0
-    },
-    "APPLY_METHOD": "wrong_flavour",
-    "ADD_TO_MC_BACKGROUND": true,
     "SAVE_TABLES": true,
-    "SAVE_PLOTS": true
+    "SAVE_PLOTS": true,
+    "SAVE_JSON": true
   },
   "PLOTS": {
     "LEADING_PT": {
