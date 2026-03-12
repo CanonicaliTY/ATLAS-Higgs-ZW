@@ -32,7 +32,7 @@
   },
   "MEDIUM_ID": {
     "APPLY": true,
-    "SCOPE": "mc_only_if_available",
+    "SCOPE": "if_available_all",
     "FIELD_CANDIDATES": [
       "lep_isMediumID"
     ]
@@ -71,7 +71,7 @@
       "wrong_charge": 1.0,
       "both_wrong": 1.0
     },
-    "APPLY_METHOD": "wrong_charge",
+    "APPLY_METHOD": "wrong_flavour",
     "ADD_TO_MC_BACKGROUND": true,
     "SAVE_TABLES": true,
     "SAVE_PLOTS": true
