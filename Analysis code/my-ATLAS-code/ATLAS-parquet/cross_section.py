@@ -7,6 +7,13 @@ from utils import produced_sumw, yield_data, yield_mc, yield_mc_var
 from visualisation import select_plotdict
 
 
+def compute_significance(signal_yield: float, background_yield: float) -> float:
+    total = float(signal_yield) + float(background_yield)
+    if total <= 0.0 or signal_yield <= 0.0:
+        return 0.0
+    return float(signal_yield) / math.sqrt(total)
+
+
 def compute_sigma(
     plot_os: dict,
     channel_config: dict,
@@ -74,4 +81,3 @@ def compute_sigma(
         "sigma_pb": sigma_pb,
         "dsigma_stat_pb": d_sigma_stat_pb,
     }
-

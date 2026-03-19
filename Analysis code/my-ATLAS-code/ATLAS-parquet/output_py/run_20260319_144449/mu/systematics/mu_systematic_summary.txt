@@ -1,0 +1,14 @@
+Channel: mu
+Nominal method: both_average
+Nominal order mode: recompute_after_iso
+Nominal sigma [pb]: 2247.304207
+Systematic combination mode: conservative_envelope
+Total systematic [pb]: 0.995278
+
+Breakdown:
+                        component  nominal_sigma_pb  value_pb  included_in_total                                                                      note
+              isolation_neighbour       2247.304207  0.000000               True Local grid-neighbour envelope around the nominal isolation working point.
+isolation_global_allowed_envelope       2247.304207  0.000000              False                      Diagnostic envelope over the allowed isolation scan.
+                      mass_window       2247.304207  0.995278               True                 Small Z-window variations around the nominal mass window.
+                 estimator_method       2247.304207  0.749392               True               Spread among wrong_flavour, wrong_charge, and both_average.
+                  estimator_order       2247.304207  0.669522               True              Difference between recompute_after_iso and fixed_before_iso.

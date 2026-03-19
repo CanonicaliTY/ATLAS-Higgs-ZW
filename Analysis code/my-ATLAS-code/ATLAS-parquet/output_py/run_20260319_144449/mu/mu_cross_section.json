@@ -1,0 +1,420 @@
+{
+  "channel": "mu",
+  "best_ptcone": 4.5,
+  "best_etcone": 9.25,
+  "mass_window": [
+    66.0,
+    116.0
+  ],
+  "require_both_iso": true,
+  "sigma_without_additional_bkg": {
+    "primary_signal": "Zmumu",
+    "N_selected": 24812658.0,
+    "N_bkg_mc": 77200.51048308381,
+    "N_bkg_extra": 0.0,
+    "N_bkg_total": 77200.51048308381,
+    "N_sig_data": 24735457.489516918,
+    "epsilon": 0.3595319548895429,
+    "sigma_pb": 2248.3350171738853,
+    "dsigma_stat_pb": 0.4539482001930883
+  },
+  "nominal": {
+    "primary_signal": "Zmumu",
+    "N_selected": 24812658.0,
+    "N_bkg_mc": 77200.51048308381,
+    "N_bkg_extra": 11340.63820310471,
+    "N_bkg_total": 88541.14868618852,
+    "N_sig_data": 24724116.85131381,
+    "epsilon": 0.3595319548895429,
+    "sigma_pb": 2247.3042072929707,
+    "dsigma_stat_pb": 0.4539482001930883
+  },
+  "additional_data_driven_bkg": {
+    "channel": "mu",
+    "selected_method": "both_average",
+    "selected_order_mode": "recompute_after_iso",
+    "mass_window": [
+      66.0,
+      116.0
+    ],
+    "ptcone_max": 4.5,
+    "etcone_max": 9.25,
+    "require_both_iso": true,
+    "control_region_debug_summary": "An index-ordering issue is present: ordered opposite-flavour counts are asymmetric even when physical wrong-flavour categories survive.\nbaseline control preselection: ordered opposite-flavour counts are one-sided ((11,13)=1095059.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass-only selection: ordered opposite-flavour counts are one-sided ((11,13)=293068.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass + iso selection: ordered opposite-flavour counts are one-sided ((11,13)=233675.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.",
+    "control_stage_totals": {
+      "baseline": {
+        "data_counts": {
+          "ordered_11_13": 1095059.0,
+          "ordered_13_11": 0.0,
+          "ep_mum": 450597.0,
+          "mup_em": 460067.0,
+          "ee_ss": 387416.0,
+          "mumu_ss": 34029.0
+        },
+        "mc_counts": {
+          "ordered_11_13": 756632.6840792695,
+          "ordered_13_11": 0.0,
+          "ep_mum": 316974.3321790564,
+          "mup_em": 329344.67759227403,
+          "ee_ss": 26122.099358394193,
+          "mumu_ss": 5851.393368795236
+        },
+        "mc_samples_included": [
+          "Wmunu",
+          "Zmumu",
+          "Ztautau",
+          "m10_40_Zmumu",
+          "ttbar"
+        ]
+      },
+      "mass_only": {
+        "data_counts": {
+          "ordered_11_13": 293068.0,
+          "ordered_13_11": 0.0,
+          "ep_mum": 123321.0,
+          "mup_em": 125476.0,
+          "ee_ss": 240030.0,
+          "mumu_ss": 8607.0
+        },
+        "mc_counts": {
+          "ordered_11_13": 215715.32147317822,
+          "ordered_13_11": 0.0,
+          "ep_mum": 92916.0681144436,
+          "mup_em": 95091.85315248898,
+          "ee_ss": 8559.649493001292,
+          "mumu_ss": 1588.5347227586974
+        },
+        "mc_samples_included": [
+          "Wmunu",
+          "Zmumu",
+          "Ztautau",
+          "m10_40_Zmumu",
+          "ttbar"
+        ]
+      },
+      "mass_plus_iso": {
+        "data_counts": {
+          "ordered_11_13": 233675.0,
+          "ordered_13_11": 0.0,
+          "ep_mum": 103852.0,
+          "mup_em": 105719.0,
+          "ee_ss": 216569.0,
+          "mumu_ss": 4626.0
+        },
+        "mc_counts": {
+          "ordered_11_13": 187021.97387491562,
+          "ordered_13_11": 0.0,
+          "ep_mum": 84263.64649796403,
+          "mup_em": 86136.94880257417,
+          "ee_ss": 3283.2051927489797,
+          "mumu_ss": 1529.9259435214778
+        },
+        "mc_samples_included": [
+          "Wmunu",
+          "Zmumu",
+          "Ztautau",
+          "m10_40_Zmumu",
+          "ttbar"
+        ]
+      }
+    },
+    "selected_estimator": {
+      "label": "Average of wrong-flavour and wrong-charge estimators",
+      "stage_name": "mass_plus_iso",
+      "stage_label": "mass + iso selection",
+      "extra_background_if_applied": 11340.63820310471,
+      "region_table": [
+        {
+          "region": "ep_mum",
+          "N_data": 103852.0,
+          "N_MC": 84263.64649796403,
+          "residual": 19588.35350203597,
+          "clipped_residual": 19588.35350203597
+        },
+        {
+          "region": "mup_em",
+          "N_data": 105719.0,
+          "N_MC": 86136.94880257417,
+          "residual": 19582.051197425826,
+          "clipped_residual": 19582.051197425826
+        },
+        {
+          "region": "ee_ss",
+          "N_data": 216569.0,
+          "N_MC": 3283.2051927489797,
+          "residual": 213285.79480725102,
+          "clipped_residual": 213285.79480725102
+        },
+        {
+          "region": "mumu_ss",
+          "N_data": 4626.0,
+          "N_MC": 1529.9259435214778,
+          "residual": 3096.074056478522,
+          "clipped_residual": 3096.074056478522
+        }
+      ],
+      "estimator_table": [
+        {
+          "method": "none",
+          "estimate_raw": 0.0,
+          "estimate_clipped": 0.0,
+          "description": "No additional estimator applied",
+          "included_in_total": false
+        },
+        {
+          "method": "wrong_flavour",
+          "estimate_raw": 19585.2023497309,
+          "estimate_clipped": 19585.2023497309,
+          "description": "Average wrong-flavour residual",
+          "included_in_total": true
+        },
+        {
+          "method": "wrong_charge",
+          "estimate_raw": 3096.074056478522,
+          "estimate_clipped": 3096.074056478522,
+          "description": "Wrong-charge residual from mumu_ss",
+          "included_in_total": true
+        },
+        {
+          "method": "both_average",
+          "estimate_raw": 11340.63820310471,
+          "estimate_clipped": 11340.63820310471,
+          "description": "Average of wrong-flavour and wrong-charge estimators",
+          "included_in_total": true
+        },
+        {
+          "method": "both_sum",
+          "estimate_raw": 22681.27640620942,
+          "estimate_clipped": 22681.27640620942,
+          "description": "Sum of wrong-flavour and wrong-charge estimators (debug)",
+          "included_in_total": false
+        }
+      ]
+    },
+    "sigma_without_additional_bkg": {
+      "primary_signal": "Zmumu",
+      "N_selected": 24812658.0,
+      "N_bkg_mc": 77200.51048308381,
+      "N_bkg_extra": 0.0,
+      "N_bkg_total": 77200.51048308381,
+      "N_sig_data": 24735457.489516918,
+      "epsilon": 0.3595319548895429,
+      "sigma_pb": 2248.3350171738853,
+      "dsigma_stat_pb": 0.4539482001930883
+    },
+    "sigma_with_additional_bkg": {
+      "primary_signal": "Zmumu",
+      "N_selected": 24812658.0,
+      "N_bkg_mc": 77200.51048308381,
+      "N_bkg_extra": 11340.63820310471,
+      "N_bkg_total": 88541.14868618852,
+      "N_sig_data": 24724116.85131381,
+      "epsilon": 0.3595319548895429,
+      "sigma_pb": 2247.3042072929707,
+      "dsigma_stat_pb": 0.4539482001930883
+    },
+    "applied_extra_background": 11340.63820310471,
+    "method_comparison": [
+      {
+        "method": "wrong_flavour",
+        "order_mode": "recompute_after_iso",
+        "stage_name": "mass_plus_iso",
+        "extra_bkg": 19585.2023497309,
+        "sigma_pb": 2246.5548157654416,
+        "sigma_shift_from_no_extra_pb": -1.780201408443645,
+        "included_in_total": true
+      },
+      {
+        "method": "wrong_charge",
+        "order_mode": "recompute_after_iso",
+        "stage_name": "mass_plus_iso",
+        "extra_bkg": 3096.074056478522,
+        "sigma_pb": 2248.0535988204992,
+        "sigma_shift_from_no_extra_pb": -0.28141835338601595,
+        "included_in_total": true
+      },
+      {
+        "method": "both_average",
+        "order_mode": "recompute_after_iso",
+        "stage_name": "mass_plus_iso",
+        "extra_bkg": 11340.63820310471,
+        "sigma_pb": 2247.3042072929707,
+        "sigma_shift_from_no_extra_pb": -1.0308098809146031,
+        "included_in_total": true
+      },
+      {
+        "method": "both_sum",
+        "order_mode": "recompute_after_iso",
+        "stage_name": "mass_plus_iso",
+        "extra_bkg": 22681.27640620942,
+        "sigma_pb": 2246.273397412056,
+        "sigma_shift_from_no_extra_pb": -2.0616197618292063,
+        "included_in_total": false
+      }
+    ],
+    "order_mode_comparison": [
+      {
+        "order_mode": "recompute_after_iso",
+        "stage_name": "mass_plus_iso",
+        "extra_bkg": 11340.63820310471,
+        "sigma_pb": 2247.3042072929707,
+        "sigma_shift_from_recompute_pb": 0.0
+      },
+      {
+        "order_mode": "fixed_before_iso",
+        "stage_name": "mass_only",
+        "extra_bkg": 18706.502321887507,
+        "sigma_pb": 2246.6346854037142,
+        "sigma_shift_from_recompute_pb": -0.6695218892564299
+      }
+    ]
+  },
+  "systematics": {
+    "channel": "mu",
+    "nominal_settings": {
+      "method": "both_average",
+      "order_mode": "recompute_after_iso",
+      "mass_window": [
+        66.0,
+        116.0
+      ],
+      "ptcone_max": 4.5,
+      "etcone_max": 9.25,
+      "require_both_iso": true
+    },
+    "nominal_sigma": {
+      "primary_signal": "Zmumu",
+      "N_selected": 24812658.0,
+      "N_bkg_mc": 77200.51048308381,
+      "N_bkg_extra": 11340.63820310471,
+      "N_bkg_total": 88541.14868618852,
+      "N_sig_data": 24724116.85131381,
+      "epsilon": 0.3595319548895429,
+      "sigma_pb": 2247.3042072929707,
+      "dsigma_stat_pb": 0.4539482001930883
+    },
+    "components": {
+      "isolation_neighbour": {
+        "nominal_sigma_pb": 2247.3042072929707,
+        "value_pb": 0.0,
+        "neighbours": [],
+        "available": false
+      },
+      "isolation_global_allowed_envelope": {
+        "nominal_sigma_pb": 2247.3042072929707,
+        "value_pb": 0.0,
+        "available": false,
+        "scan_points": []
+      },
+      "mass_window": {
+        "nominal_sigma_pb": 2247.3042072929707,
+        "value_pb": 0.9952784544525457,
+        "variations": [
+          {
+            "variation": "68.0_114.0",
+            "mass_low": 68.0,
+            "mass_high": 114.0,
+            "extra_bkg": 10432.579572449396,
+            "sigma_pb": 2247.7145985696266,
+            "sigma_shift_from_nominal_pb": 0.4103912766559006
+          },
+          {
+            "variation": "64.0_118.0",
+            "mass_low": 64.0,
+            "mass_high": 118.0,
+            "extra_bkg": 12242.964136023604,
+            "sigma_pb": 2246.7830166306003,
+            "sigma_shift_from_nominal_pb": -0.5211906623703726
+          },
+          {
+            "variation": "70.0_112.0",
+            "mass_low": 70.0,
+            "mass_high": 112.0,
+            "extra_bkg": 9645.507982130213,
+            "sigma_pb": 2248.1825085162513,
+            "sigma_shift_from_nominal_pb": 0.8783012232806868
+          },
+          {
+            "variation": "62.0_120.0",
+            "mass_low": 62.0,
+            "mass_high": 120.0,
+            "extra_bkg": 13327.724824193512,
+            "sigma_pb": 2246.308928838518,
+            "sigma_shift_from_nominal_pb": -0.9952784544525457
+          }
+        ]
+      },
+      "estimator_method": {
+        "nominal_sigma_pb": 2247.3042072929707,
+        "value_pb": 0.7493915275290419,
+        "comparisons": [
+          {
+            "method": "wrong_flavour",
+            "order_mode": "recompute_after_iso",
+            "stage_name": "mass_plus_iso",
+            "extra_bkg": 19585.2023497309,
+            "sigma_pb": 2246.5548157654416,
+            "sigma_shift_from_no_extra_pb": -1.780201408443645,
+            "included_in_total": true,
+            "sigma_shift_from_nominal_pb": -0.7493915275290419
+          },
+          {
+            "method": "wrong_charge",
+            "order_mode": "recompute_after_iso",
+            "stage_name": "mass_plus_iso",
+            "extra_bkg": 3096.074056478522,
+            "sigma_pb": 2248.0535988204992,
+            "sigma_shift_from_no_extra_pb": -0.28141835338601595,
+            "included_in_total": true,
+            "sigma_shift_from_nominal_pb": 0.7493915275285872
+          },
+          {
+            "method": "both_average",
+            "order_mode": "recompute_after_iso",
+            "stage_name": "mass_plus_iso",
+            "extra_bkg": 11340.63820310471,
+            "sigma_pb": 2247.3042072929707,
+            "sigma_shift_from_no_extra_pb": -1.0308098809146031,
+            "included_in_total": true,
+            "sigma_shift_from_nominal_pb": 0.0
+          },
+          {
+            "method": "both_sum",
+            "order_mode": "recompute_after_iso",
+            "stage_name": "mass_plus_iso",
+            "extra_bkg": 22681.27640620942,
+            "sigma_pb": 2246.273397412056,
+            "sigma_shift_from_no_extra_pb": -2.0616197618292063,
+            "included_in_total": false,
+            "sigma_shift_from_nominal_pb": -1.0308098809146031
+          }
+        ]
+      },
+      "estimator_order": {
+        "nominal_sigma_pb": 2247.3042072929707,
+        "value_pb": 0.6695218892564299,
+        "comparisons": [
+          {
+            "order_mode": "recompute_after_iso",
+            "stage_name": "mass_plus_iso",
+            "extra_bkg": 11340.63820310471,
+            "sigma_pb": 2247.3042072929707,
+            "sigma_shift_from_recompute_pb": 0.0,
+            "sigma_shift_from_nominal_pb": 0.0
+          },
+          {
+            "order_mode": "fixed_before_iso",
+            "stage_name": "mass_only",
+            "extra_bkg": 18706.502321887507,
+            "sigma_pb": 2246.6346854037142,
+            "sigma_shift_from_recompute_pb": -0.6695218892564299,
+            "sigma_shift_from_nominal_pb": -0.6695218892564299
+          }
+        ]
+      }
+    },
+    "total_systematic_pb": 0.9952784544525457,
+    "combination_mode": "conservative_envelope"
+  },
+  "lumi_pb": 38.204171523980506
+}

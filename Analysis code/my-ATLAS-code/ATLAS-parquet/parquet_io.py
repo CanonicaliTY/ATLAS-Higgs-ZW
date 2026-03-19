@@ -53,17 +53,7 @@ def should_apply_medium_id(sample_code: str, medium_field: str | None) -> tuple[
         return False, "disabled"
     if medium_field is None:
         return False, "field_not_available"
-
-    scope = SETTINGS["MEDIUM_ID"]["SCOPE"]
-    if scope == "disabled":
-        return False, "disabled"
-    if scope == "mc_only_if_available":
-        if is_data_sample(sample_code):
-            return False, "data_sample_skipped"
-        return True, "mc_field_available"
-    if scope == "if_available_all":
-        return True, "field_available"
-    return False, f"unknown_scope:{scope}"
+    return True, "field_available"
 
 
 def main_tight_tag(lepton: str) -> str:

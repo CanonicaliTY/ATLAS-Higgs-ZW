@@ -9,6 +9,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 from config import CHANNELS, SETTINGS, user_facing_sample_label
 from selections import apply_selection
@@ -303,19 +304,66 @@ def save_additional_bkg_plot(table: pd.DataFrame, output_path: Path, title: str)
     save_fig(figure, output_path)
 
 
-def save_estimator_plot(table: pd.DataFrame, output_path: Path, title: str, selected_method: str) -> None:
+def save_estimator_plot(table: pd.DataFrame, output_path: Path, title: str) -> None:
     figure, axis = plt.subplots(figsize=(9, 5))
     x_values = np.arange(len(table))
     width = 0.35
     axis.bar(x_values - width / 2.0, table["estimate_raw"].values, width=width, label="estimate_raw")
     axis.bar(x_values + width / 2.0, table["estimate_clipped"].values, width=width, label="estimate_clipped")
     axis.axhline(0.0, color="black", linewidth=1.0)
-    labels = [f"{method}*" if method == selected_method else method for method in table["method"].tolist()]
     axis.set_xticks(x_values)
-    axis.set_xticklabels(labels, rotation=15, ha="right")
+    axis.set_xticklabels(table["method"].tolist(), rotation=15, ha="right")
     axis.set_ylabel("estimated additional background events")
     axis.set_title(title)
     axis.legend()
     figure.tight_layout()
     save_fig(figure, output_path)
 
+
+def save_surface_plot(
+    scan_table: pd.DataFrame,
+    output_path: Path,
+    value_column: str,
+    title: str,
+) -> None:
+    pivot = scan_table.pivot(index="etcone_max", columns="ptcone_max", values=value_column)
+    pivot = pivot.sort_index(axis=0).sort_index(axis=1)
+
+    x_grid, y_grid = np.meshgrid(pivot.columns.values, pivot.index.values)
+    z_grid = pivot.values
+
+    figure = plt.figure(figsize=(9, 7))
+    axis = figure.add_subplot(111, projection="3d")
+    surface = axis.plot_surface(x_grid, y_grid, z_grid, cmap="viridis", edgecolor="none")
+    axis.set_xlabel("ptcone_max [GeV]")
+    axis.set_ylabel("etcone_max [GeV]")
+    axis.set_zlabel(value_column)
+    axis.set_title(title)
+    figure.colorbar(surface, ax=axis, shrink=0.65, pad=0.1)
+    save_fig(figure, output_path)
+
+
+def save_slice_plot(
+    scan_table: pd.DataFrame,
+    output_path: Path,
+    x_column: str,
+    value_column: str,
+    fixed_column: str,
+    title: str,
+) -> None:
+    figure, axis = plt.subplots(figsize=(9, 5))
+    for fixed_value, slice_frame in scan_table.groupby(fixed_column):
+        ordered = slice_frame.sort_values(x_column)
+        axis.plot(
+            ordered[x_column].values,
+            ordered[value_column].values,
+            marker="o",
+            label=f"{fixed_column}={fixed_value:.2f}",
+        )
+    axis.set_xlabel(f"{x_column} [GeV]")
+    axis.set_ylabel(value_column)
+    axis.set_title(title)
+    axis.legend(fontsize=8, ncols=2)
+    axis.grid(alpha=0.3)
+    figure.tight_layout()
+    save_fig(figure, output_path)

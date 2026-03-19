@@ -2,21 +2,119 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from config import CHANNELS, LUMI_REL_UNC, SETTINGS
-from control_regions import build_additional_background_report
+import pandas as pd
+
+from config import CHANNELS, DD_METHODS, SETTINGS, iso_eff_threshold_for
+from control_regions import evaluate_cut_point, save_cut_point_report
 from parquet_io import load_main_events
-from scan import scan_isolation
+from scan import build_monotonicity_diagnostics, build_scan_diagnostics_table, monotonicity_summary_text, scan_isolation
 from systematics import evaluate_systematics
 from utils import ensure_environment, ensure_script_directory, import_backend, now_stamp, write_json, write_text
 from visualisation import (
     build_plot_dict,
     compose_image_grid,
-    cutflow_table,
     make_after_plots,
     make_before_plots,
     save_scan_heatmap,
+    save_slice_plot,
+    save_surface_plot,
     select_plotdict,
 )
+
+
+def _save_scan_diagnostics_outputs(
+    lepton: str,
+    diagnostic_table,
+    best_ptcone: float,
+    best_etcone: float,
+    output_dir: Path,
+) -> str:
+    diagnostic_table.to_csv(output_dir / f"{lepton}_scan_diagnostics_full.csv", index=False)
+    write_json(output_dir / f"{lepton}_scan_diagnostics_full.json", diagnostic_table.to_dict(orient="records"))
+
+    if SETTINGS["ISO_SCAN"]["SAVE_HEATMAPS"]:
+        save_scan_heatmap(
+            diagnostic_table,
+            output_dir / f"{lepton}_heatmap_significance.png",
+            value_column="significance",
+            title=f"{lepton}: significance",
+            best_ptcone=best_ptcone,
+            best_etcone=best_etcone,
+        )
+        for method in DD_METHODS:
+            save_scan_heatmap(
+                diagnostic_table,
+                output_dir / f"{lepton}_heatmap_sigma_{method}.png",
+                value_column=f"sigma_pb_{method}",
+                title=f"{lepton}: sigma ({method})",
+                best_ptcone=best_ptcone,
+                best_etcone=best_etcone,
+            )
+
+    if SETTINGS["ISO_SCAN"]["SAVE_3D_PLOTS"]:
+        save_surface_plot(
+            diagnostic_table,
+            output_dir / f"{lepton}_surface_significance.png",
+            value_column="significance",
+            title=f"{lepton}: significance surface",
+        )
+        for method in DD_METHODS:
+            save_surface_plot(
+                diagnostic_table,
+                output_dir / f"{lepton}_surface_sigma_{method}.png",
+                value_column=f"sigma_pb_{method}",
+                title=f"{lepton}: sigma surface ({method})",
+            )
+
+    if SETTINGS["ISO_SCAN"]["SAVE_SLICE_PLOTS"]:
+        for method in DD_METHODS:
+            save_slice_plot(
+                diagnostic_table,
+                output_dir / f"{lepton}_slice_sigma_{method}_vs_ptcone.png",
+                x_column="ptcone_max",
+                value_column=f"sigma_pb_{method}",
+                fixed_column="etcone_max",
+                title=f"{lepton}: sigma ({method}) vs ptcone at fixed etcone",
+            )
+            save_slice_plot(
+                diagnostic_table,
+                output_dir / f"{lepton}_slice_sigma_{method}_vs_etcone.png",
+                x_column="etcone_max",
+                value_column=f"sigma_pb_{method}",
+                fixed_column="ptcone_max",
+                title=f"{lepton}: sigma ({method}) vs etcone at fixed ptcone",
+            )
+
+    monotonicity = build_monotonicity_diagnostics(
+        diagnostic_table=diagnostic_table,
+        tolerance=float(SETTINGS["ISO_SCAN"]["MONOTONICITY_TOL_ABS"]),
+    )
+    monotonicity["delta_table"].to_csv(output_dir / f"{lepton}_monotonicity_deltas.csv", index=False)
+    monotonicity["classification_table"].to_csv(
+        output_dir / f"{lepton}_monotonicity_classification.csv",
+        index=False,
+    )
+
+    summary_lines = [
+        "Scan diagnostics are exploratory outputs, not an official isolation systematic.",
+        "",
+        "Sigma ranges across the scanned grid:",
+    ]
+    for method in DD_METHODS:
+        value_column = f"sigma_pb_{method}"
+        summary_lines.append(
+            f"{method}: min={diagnostic_table[value_column].min():.6f} pb, max={diagnostic_table[value_column].max():.6f} pb"
+        )
+    summary_lines.extend(
+        [
+            "",
+            "Monotonicity summary:",
+            monotonicity_summary_text(monotonicity["classification_table"]),
+        ]
+    )
+    summary_text = "\n".join(summary_lines)
+    write_text(output_dir / f"{lepton}_scan_diagnostics_summary.txt", summary_text)
+    return summary_text
 
 
 def run_channel(lepton: str, backend: dict, output_dir: Path) -> None:
@@ -46,14 +144,13 @@ def run_channel(lepton: str, backend: dict, output_dir: Path) -> None:
 
     mass_window = tuple(SETTINGS["MASS_WINDOW"])
     require_both = bool(SETTINGS["REQUIRE_BOTH_ISO"])
+    iso_dir = output_dir / "iso_scan"
+    iso_dir.mkdir(parents=True, exist_ok=True)
 
     full_scan = None
     allowed_scan = None
     best_point = None
-    iso_dir = output_dir / "iso_scan"
-    iso_dir.mkdir(parents=True, exist_ok=True)
-
-    if SETTINGS["USE_SCAN"]:
+    if SETTINGS["ISO_SCAN"]["RUN_OPTIMISATION_SCAN"] or SETTINGS["ISO_SCAN"]["RUN_SCAN_DIAGNOSTICS"]:
         full_scan, allowed_scan, best_point = scan_isolation(
             plot_os=plot_os,
             plot_ss=plot_ss,
@@ -63,33 +160,22 @@ def run_channel(lepton: str, backend: dict, output_dir: Path) -> None:
             ptcone_step=float(SETTINGS["ISO_SCAN"]["PTCONE_STEP"]),
             etcone_range=tuple(SETTINGS["ISO_SCAN"]["ETCONE_RANGE"]),
             etcone_step=float(SETTINGS["ISO_SCAN"]["ETCONE_STEP"]),
-            os_sig_eff_min=float(SETTINGS["ISO_SCAN"]["OS_SIG_EFF_MIN"][lepton])
-            if isinstance(SETTINGS["ISO_SCAN"]["OS_SIG_EFF_MIN"], dict)
-            else float(SETTINGS["ISO_SCAN"]["OS_SIG_EFF_MIN"]),
+            os_sig_eff_min=iso_eff_threshold_for(lepton),
             progress_label=lepton,
         )
+        full_scan.to_csv(iso_dir / f"{lepton}_iso_scan_full.csv", index=False)
+        allowed_scan.to_csv(iso_dir / f"{lepton}_iso_scan_allowed.csv", index=False)
+        best_point.to_frame("best").to_csv(iso_dir / f"{lepton}_iso_scan_best.csv")
+
+    if SETTINGS["ISO_SCAN"]["RUN_OPTIMISATION_SCAN"] and best_point is not None:
         best_ptcone = float(best_point["ptcone_max"])
         best_etcone = float(best_point["etcone_max"])
-
-        if SETTINGS["SAVE_SCAN_TABLES"]:
-            full_scan.to_csv(iso_dir / f"{lepton}_iso_scan_full.csv", index=False)
-            allowed_scan.to_csv(iso_dir / f"{lepton}_iso_scan_allowed.csv", index=False)
-            best_point.to_frame("best").to_csv(iso_dir / f"{lepton}_iso_scan_best.csv")
-
-        if SETTINGS["SAVE_PLOTS"]:
+        if SETTINGS["ISO_SCAN"]["SAVE_HEATMAPS"]:
             save_scan_heatmap(
                 full_scan,
-                iso_dir / f"{lepton}_heatmap_SS_rejection.png",
-                value_column="SS_rejection",
-                title=f"{lepton}: SS rejection",
-                best_ptcone=best_ptcone,
-                best_etcone=best_etcone,
-            )
-            save_scan_heatmap(
-                full_scan,
-                iso_dir / f"{lepton}_heatmap_OS_sig_eff.png",
-                value_column="OS_sig_eff",
-                title=f"{lepton}: OS signal efficiency",
+                iso_dir / f"{lepton}_heatmap_significance_optimisation.png",
+                value_column="significance",
+                title=f"{lepton}: optimisation significance",
                 best_ptcone=best_ptcone,
                 best_etcone=best_etcone,
             )
@@ -133,30 +219,13 @@ def run_channel(lepton: str, backend: dict, output_dir: Path) -> None:
             figsize=(14, 6),
         )
 
-    os_cutflow = cutflow_table(
-        plot_os,
-        mass_window=mass_window,
-        ptcone_max=best_ptcone,
-        etcone_max=best_etcone,
-        require_both=require_both,
-    )
-    ss_cutflow = cutflow_table(
-        plot_ss,
-        mass_window=mass_window,
-        ptcone_max=best_ptcone,
-        etcone_max=best_etcone,
-        require_both=require_both,
-    )
-    if SETTINGS["SAVE_TABLES"]:
-        os_cutflow.to_csv(output_dir / f"{lepton}_cutflow_OS.csv", index=False)
-        ss_cutflow.to_csv(output_dir / f"{lepton}_cutflow_SS.csv", index=False)
-
     control_cache: dict = {}
     produced_cache: dict[str, float] = {}
 
-    additional_report = build_additional_background_report(
+    cut_point_result = evaluate_cut_point(
         lepton=lepton,
         plot_os=plot_os,
+        plot_ss=plot_ss,
         channel_config=channel,
         produced_event_count_fn=produced_event_count,
         backend=backend,
@@ -164,59 +233,94 @@ def run_channel(lepton: str, backend: dict, output_dir: Path) -> None:
         ptcone_max=best_ptcone,
         etcone_max=best_etcone,
         require_both=require_both,
-        output_dir=output_dir / "additional_data_driven_bkg",
         control_cache=control_cache,
         produced_cache=produced_cache,
+        include_cutflows=True,
     )
+    dd_report = save_cut_point_report(lepton, cut_point_result, output_dir / "additional_data_driven_bkg")
 
-    nominal_sigma = additional_report["sigma_with_additional_bkg"]
-    sigma_without_additional_bkg = additional_report["sigma_without_additional_bkg"]
+    scan_diagnostic_summary = None
+    if SETTINGS["ISO_SCAN"]["RUN_SCAN_DIAGNOSTICS"]:
+        if full_scan is None:
+            raise RuntimeError("Scan diagnostics requested but no scan grid was built.")
+
+        def diagnostic_evaluator(ptcone_value: float, etcone_value: float) -> dict:
+            return evaluate_cut_point(
+                lepton=lepton,
+                plot_os=plot_os,
+                plot_ss=plot_ss,
+                channel_config=channel,
+                produced_event_count_fn=produced_event_count,
+                backend=backend,
+                mass_window=mass_window,
+                ptcone_max=ptcone_value,
+                etcone_max=etcone_value,
+                require_both=require_both,
+                control_cache=control_cache,
+                produced_cache=produced_cache,
+                include_cutflows=False,
+            )
+
+        diagnostic_table = build_scan_diagnostics_table(full_scan, diagnostic_evaluator)
+        scan_diagnostic_summary = _save_scan_diagnostics_outputs(
+            lepton=lepton,
+            diagnostic_table=diagnostic_table,
+            best_ptcone=best_ptcone,
+            best_etcone=best_etcone,
+            output_dir=iso_dir,
+        )
 
     systematics_result = evaluate_systematics(
         lepton=lepton,
         plot_os=plot_os,
+        plot_ss=plot_ss,
         channel_config=channel,
         produced_event_count_fn=produced_event_count,
         backend=backend,
+        nominal_cut_point=cut_point_result,
         mass_window=mass_window,
         ptcone_max=best_ptcone,
         etcone_max=best_etcone,
         require_both=require_both,
-        full_scan=full_scan,
-        allowed_scan=allowed_scan,
         systematics_dir=output_dir / "systematics",
-        scan_output_dir=iso_dir,
         control_cache=control_cache,
         produced_cache=produced_cache,
     )
-    total_systematic_pb = float(systematics_result["total_systematic_pb"])
-    lumi_pb = LUMI_REL_UNC * nominal_sigma["sigma_pb"]
+
+    uncertainty_table = pd.DataFrame(systematics_result["mass_window"]["uncertainty_summary_by_method"])
 
     summary_lines = [
         f"Channel: {lepton}",
-        f"Nominal method: {additional_report['selected_method']}",
-        f"Nominal order mode: {additional_report['selected_order_mode']}",
-        f"Mass window [GeV]: {mass_window[0]:.1f} to {mass_window[1]:.1f}",
-        f"Isolation working point: ptcone<{best_ptcone:.3f}, etcone<{best_etcone:.3f}, require_both={require_both}",
         "",
-        "OS cutflow:",
-        os_cutflow.to_string(index=False),
+        "1. Best isolation working point",
+        f"best_ptcone = {best_ptcone:.4f}",
+        f"best_etcone = {best_etcone:.4f}",
         "",
-        "SS cutflow:",
-        ss_cutflow.to_string(index=False),
+        "2. OS cutflow",
+        cut_point_result["os_cutflow"].to_string(index=False),
         "",
-        f"Sigma without additional background [pb]: {sigma_without_additional_bkg['sigma_pb']:.6f}",
-        f"Sigma with selected estimator [pb]: {nominal_sigma['sigma_pb']:.6f}",
-        f"Applied additional background events: {additional_report['applied_extra_background']:.6f}",
-        (
-            f"Quoted result [pb]: {nominal_sigma['sigma_pb']:.6f} "
-            f"+/- {nominal_sigma['dsigma_stat_pb']:.6f} (stat.) "
-            f"+/- {total_systematic_pb:.6f} (syst.) "
-            f"+/- {lumi_pb:.6f} (lumi.)"
-        ),
+        "3. SS cutflow",
+        cut_point_result["ss_cutflow"].to_string(index=False) if cut_point_result["ss_cutflow"] is not None else "N/A",
+        "",
+        "4. Nominal cross section summary",
+        uncertainty_table.to_string(index=False),
+        "",
+        "5. Additional-background comparison summary",
+        dd_report["sigma_results_table"].to_string(index=False),
+        "",
+        "6. Regions table",
+        dd_report["regions_table"].to_string(index=False),
+        "",
+        "7. Estimators table",
+        dd_report["estimators_table"].to_string(index=False),
+        "",
+        "8. Comparison sigma if applied",
+        dd_report["comparison_sigma_if_applied"].to_string(index=False),
     ]
-    write_text(output_dir / f"{lepton}_summary.txt", "\n".join(summary_lines))
+    if scan_diagnostic_summary is not None:
+        summary_lines.extend(["", "9. Scan diagnostic / monotonicity summary", scan_diagnostic_summary])
 
+    write_text(output_dir / f"{lepton}_summary.txt", "\n".join(summary_lines))
     write_json(
         output_dir / f"{lepton}_cross_section.json",
         {
@@ -225,11 +329,15 @@ def run_channel(lepton: str, backend: dict, output_dir: Path) -> None:
             "best_etcone": best_etcone,
             "mass_window": list(mass_window),
             "require_both_iso": require_both,
-            "sigma_without_additional_bkg": sigma_without_additional_bkg,
-            "nominal": nominal_sigma,
-            "additional_data_driven_bkg": additional_report,
+            "cut_point_evaluation": {
+                "regions_table": dd_report["regions_table"].to_dict(orient="records"),
+                "estimators_table": dd_report["estimators_table"].to_dict(orient="records"),
+                "sigma_results_table": dd_report["sigma_results_table"].to_dict(orient="records"),
+                "comparison_sigma_if_applied": dd_report["comparison_sigma_if_applied"].to_dict(orient="records"),
+                "control_region_debug_summary": dd_report["debug_summary"],
+            },
             "systematics": systematics_result,
-            "lumi_pb": lumi_pb,
+            "scan_diagnostics_summary": scan_diagnostic_summary,
         },
     )
 

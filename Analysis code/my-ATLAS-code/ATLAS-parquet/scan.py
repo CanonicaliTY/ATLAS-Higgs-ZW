@@ -5,7 +5,8 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 
-from selections import apply_selection
+from config import DD_METHODS
+from cross_section import compute_significance
 from visualisation import select_plotdict, summarize
 
 try:
@@ -55,32 +56,36 @@ def scan_isolation(
             require_both=require_both,
         )
 
-        _, os_signal, _, os_signal_over_background, os_data_over_mc = summarize(os_selected)
+        os_data, os_signal, os_background, os_signal_over_background, os_data_over_mc = summarize(os_selected)
         ss_data, _, _, _, _ = summarize(ss_selected)
 
         os_signal_efficiency = (os_signal / os_signal_reference) if os_signal_reference > 0 else float("nan")
         ss_rejection = 1.0 - (ss_data / ss_data_reference) if ss_data_reference > 0 else float("nan")
+        significance = compute_significance(os_signal, os_background)
 
         rows.append(
-            [
-                ptcone_max,
-                etcone_max,
-                os_signal_efficiency,
-                ss_rejection,
-                os_data_over_mc,
-                os_signal_over_background,
-                ss_data,
-            ]
+            {
+                "ptcone_max": ptcone_max,
+                "etcone_max": etcone_max,
+                "significance": significance,
+                "OS_sig_eff": os_signal_efficiency,
+                "SS_rejection": ss_rejection,
+                "OS_Data": os_data,
+                "OS_Signal": os_signal,
+                "OS_Background": os_background,
+                "OS_Data/MC": os_data_over_mc,
+                "OS_S/B": os_signal_over_background,
+                "SS_Data": ss_data,
+            }
         )
 
-    full_scan = pd.DataFrame(
-        rows,
-        columns=["ptcone_max", "etcone_max", "OS_sig_eff", "SS_rejection", "OS_Data/MC", "OS_S/B", "SS_Data"],
-    )
+    full_scan = pd.DataFrame(rows)
     allowed_scan = full_scan[full_scan["OS_sig_eff"] >= os_sig_eff_min].copy()
     allowed_scan["tightness"] = allowed_scan["ptcone_max"] + allowed_scan["etcone_max"]
-    allowed_scan = allowed_scan.sort_values(["SS_rejection", "tightness"], ascending=[False, True])
-
+    allowed_scan = allowed_scan.sort_values(
+        ["significance", "SS_rejection", "tightness"],
+        ascending=[False, False, True],
+    )
     if allowed_scan.empty:
         raise RuntimeError(
             f"No scan point satisfies OS_sig_eff_min={os_sig_eff_min}. "
@@ -91,58 +96,114 @@ def scan_isolation(
     return full_scan, allowed_scan, best_point
 
 
-def scan_table_with_sigma(
+def build_scan_diagnostics_table(
     scan_table: pd.DataFrame,
-    sigma_evaluator: Callable[[float, float], dict],
-    method: str,
-    order_mode: str,
+    cut_point_evaluator: Callable[[float, float], dict],
 ) -> pd.DataFrame:
     rows = []
     for row in scan_table.to_dict(orient="records"):
-        evaluation = sigma_evaluator(float(row["ptcone_max"]), float(row["etcone_max"]))
-        sigma_result = evaluation["sigma_with_additional_bkg"]
+        evaluation = cut_point_evaluator(float(row["ptcone_max"]), float(row["etcone_max"]))
+        sigma_results = evaluation["sigma_results_table"].set_index("method")
         rows.append(
             {
-                "ptcone_max": float(row["ptcone_max"]),
-                "etcone_max": float(row["etcone_max"]),
-                "OS_sig_eff": float(row["OS_sig_eff"]),
-                "SS_rejection": float(row["SS_rejection"]),
-                "OS_Data/MC": float(row["OS_Data/MC"]),
-                "OS_S/B": float(row["OS_S/B"]),
-                "SS_Data": float(row["SS_Data"]),
-                "method": method,
-                "order_mode": order_mode,
-                "stage_name": evaluation["estimator_detail"]["stage_name"],
-                "extra_bkg": evaluation["applied_extra_background"],
-                "sigma_pb": sigma_result["sigma_pb"],
-                "sigma_without_extra_pb": evaluation["sigma_without_additional_bkg"]["sigma_pb"],
+                **row,
+                "extra_bkg_wrong_flavour": float(sigma_results.loc["wrong_flavour", "extra_bkg"]),
+                "extra_bkg_wrong_charge": float(sigma_results.loc["wrong_charge", "extra_bkg"]),
+                "extra_bkg_both_average": float(sigma_results.loc["both_average", "extra_bkg"]),
+                "sigma_pb_none": float(sigma_results.loc["none", "sigma_pb"]),
+                "sigma_pb_wrong_flavour": float(sigma_results.loc["wrong_flavour", "sigma_pb"]),
+                "sigma_pb_wrong_charge": float(sigma_results.loc["wrong_charge", "sigma_pb"]),
+                "sigma_pb_both_average": float(sigma_results.loc["both_average", "sigma_pb"]),
+                "sigma_shift_pb_wrong_flavour": float(sigma_results.loc["wrong_flavour", "sigma_shift_pb"]),
+                "sigma_shift_pb_wrong_charge": float(sigma_results.loc["wrong_charge", "sigma_shift_pb"]),
+                "sigma_shift_pb_both_average": float(sigma_results.loc["both_average", "sigma_shift_pb"]),
             }
         )
     return pd.DataFrame(rows)
 
 
-def find_scan_neighbours(
-    scan_table: pd.DataFrame,
-    nominal_ptcone: float,
-    nominal_etcone: float,
-    ptcone_step: float,
-    etcone_step: float,
-) -> pd.DataFrame:
-    candidates = [
-        (nominal_ptcone - ptcone_step, nominal_etcone),
-        (nominal_ptcone + ptcone_step, nominal_etcone),
-        (nominal_ptcone, nominal_etcone - etcone_step),
-        (nominal_ptcone, nominal_etcone + etcone_step),
-    ]
+def classify_monotonic_deltas(deltas: list[float], tolerance: float) -> str:
+    if len(deltas) == 0:
+        return "inconclusive / too few points"
 
-    neighbours = []
-    for ptcone_value, etcone_value in candidates:
-        if ptcone_value < 0 or etcone_value < 0:
+    signs = []
+    for delta in deltas:
+        if delta > tolerance:
+            signs.append(1)
+        elif delta < -tolerance:
+            signs.append(-1)
+        else:
+            signs.append(0)
+
+    non_zero = {sign for sign in signs if sign != 0}
+    if not non_zero:
+        return "inconclusive / too few points"
+    if non_zero == {1}:
+        return "monotonic increasing"
+    if non_zero == {-1}:
+        return "monotonic decreasing"
+    return "non-monotonic"
+
+
+def build_monotonicity_diagnostics(
+    diagnostic_table: pd.DataFrame,
+    tolerance: float,
+) -> dict[str, pd.DataFrame]:
+    delta_rows = []
+    classification_rows = []
+    sigma_columns = [f"sigma_pb_{method}" for method in DD_METHODS]
+
+    for sigma_column in sigma_columns:
+        method = sigma_column.removeprefix("sigma_pb_")
+        for fixed_axis, varying_axis in (("etcone_max", "ptcone_max"), ("ptcone_max", "etcone_max")):
+            for fixed_value, slice_frame in diagnostic_table.groupby(fixed_axis):
+                ordered = slice_frame.sort_values(varying_axis)
+                values = ordered[sigma_column].tolist()
+                varying_values = ordered[varying_axis].tolist()
+                deltas = []
+                for index in range(len(values) - 1):
+                    delta = float(values[index + 1] - values[index])
+                    deltas.append(delta)
+                    delta_rows.append(
+                        {
+                            "method": method,
+                            "fixed_axis": fixed_axis,
+                            "fixed_value": float(fixed_value),
+                            "varying_axis": varying_axis,
+                            "varying_start": float(varying_values[index]),
+                            "varying_end": float(varying_values[index + 1]),
+                            "delta": delta,
+                        }
+                    )
+
+                classification_rows.append(
+                    {
+                        "method": method,
+                        "fixed_axis": fixed_axis,
+                        "fixed_value": float(fixed_value),
+                        "varying_axis": varying_axis,
+                        "classification": classify_monotonic_deltas(deltas, tolerance),
+                        "n_points": len(values),
+                    }
+                )
+
+    delta_table = pd.DataFrame(delta_rows)
+    classification_table = pd.DataFrame(classification_rows)
+    return {"delta_table": delta_table, "classification_table": classification_table}
+
+
+def monotonicity_summary_text(classification_table: pd.DataFrame) -> str:
+    if classification_table.empty:
+        return "No monotonicity slices were available."
+
+    lines = []
+    for method in DD_METHODS:
+        method_rows = classification_table[classification_table["method"] == method]
+        if method_rows.empty:
             continue
-        matches = scan_table[
-            np.isclose(scan_table["ptcone_max"], ptcone_value) & np.isclose(scan_table["etcone_max"], etcone_value)
-        ]
-        if not matches.empty:
-            neighbours.append(matches.iloc[0].to_dict())
+        lines.append(f"Method: {method}")
+        counts = method_rows.groupby(["fixed_axis", "classification"]).size().reset_index(name="count")
+        lines.append(counts.to_string(index=False))
+        lines.append("")
+    return "\n".join(lines).strip()
 
-    return pd.DataFrame(neighbours)

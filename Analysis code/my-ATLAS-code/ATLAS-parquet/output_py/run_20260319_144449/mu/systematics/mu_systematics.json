@@ -1,0 +1,147 @@
+{
+  "channel": "mu",
+  "nominal_settings": {
+    "method": "both_average",
+    "order_mode": "recompute_after_iso",
+    "mass_window": [
+      66.0,
+      116.0
+    ],
+    "ptcone_max": 4.5,
+    "etcone_max": 9.25,
+    "require_both_iso": true
+  },
+  "nominal_sigma": {
+    "primary_signal": "Zmumu",
+    "N_selected": 24812658.0,
+    "N_bkg_mc": 77200.51048308381,
+    "N_bkg_extra": 11340.63820310471,
+    "N_bkg_total": 88541.14868618852,
+    "N_sig_data": 24724116.85131381,
+    "epsilon": 0.3595319548895429,
+    "sigma_pb": 2247.3042072929707,
+    "dsigma_stat_pb": 0.4539482001930883
+  },
+  "components": {
+    "isolation_neighbour": {
+      "nominal_sigma_pb": 2247.3042072929707,
+      "value_pb": 0.0,
+      "neighbours": [],
+      "available": false
+    },
+    "isolation_global_allowed_envelope": {
+      "nominal_sigma_pb": 2247.3042072929707,
+      "value_pb": 0.0,
+      "available": false,
+      "scan_points": []
+    },
+    "mass_window": {
+      "nominal_sigma_pb": 2247.3042072929707,
+      "value_pb": 0.9952784544525457,
+      "variations": [
+        {
+          "variation": "68.0_114.0",
+          "mass_low": 68.0,
+          "mass_high": 114.0,
+          "extra_bkg": 10432.579572449396,
+          "sigma_pb": 2247.7145985696266,
+          "sigma_shift_from_nominal_pb": 0.4103912766559006
+        },
+        {
+          "variation": "64.0_118.0",
+          "mass_low": 64.0,
+          "mass_high": 118.0,
+          "extra_bkg": 12242.964136023604,
+          "sigma_pb": 2246.7830166306003,
+          "sigma_shift_from_nominal_pb": -0.5211906623703726
+        },
+        {
+          "variation": "70.0_112.0",
+          "mass_low": 70.0,
+          "mass_high": 112.0,
+          "extra_bkg": 9645.507982130213,
+          "sigma_pb": 2248.1825085162513,
+          "sigma_shift_from_nominal_pb": 0.8783012232806868
+        },
+        {
+          "variation": "62.0_120.0",
+          "mass_low": 62.0,
+          "mass_high": 120.0,
+          "extra_bkg": 13327.724824193512,
+          "sigma_pb": 2246.308928838518,
+          "sigma_shift_from_nominal_pb": -0.9952784544525457
+        }
+      ]
+    },
+    "estimator_method": {
+      "nominal_sigma_pb": 2247.3042072929707,
+      "value_pb": 0.7493915275290419,
+      "comparisons": [
+        {
+          "method": "wrong_flavour",
+          "order_mode": "recompute_after_iso",
+          "stage_name": "mass_plus_iso",
+          "extra_bkg": 19585.2023497309,
+          "sigma_pb": 2246.5548157654416,
+          "sigma_shift_from_no_extra_pb": -1.780201408443645,
+          "included_in_total": true,
+          "sigma_shift_from_nominal_pb": -0.7493915275290419
+        },
+        {
+          "method": "wrong_charge",
+          "order_mode": "recompute_after_iso",
+          "stage_name": "mass_plus_iso",
+          "extra_bkg": 3096.074056478522,
+          "sigma_pb": 2248.0535988204992,
+          "sigma_shift_from_no_extra_pb": -0.28141835338601595,
+          "included_in_total": true,
+          "sigma_shift_from_nominal_pb": 0.7493915275285872
+        },
+        {
+          "method": "both_average",
+          "order_mode": "recompute_after_iso",
+          "stage_name": "mass_plus_iso",
+          "extra_bkg": 11340.63820310471,
+          "sigma_pb": 2247.3042072929707,
+          "sigma_shift_from_no_extra_pb": -1.0308098809146031,
+          "included_in_total": true,
+          "sigma_shift_from_nominal_pb": 0.0
+        },
+        {
+          "method": "both_sum",
+          "order_mode": "recompute_after_iso",
+          "stage_name": "mass_plus_iso",
+          "extra_bkg": 22681.27640620942,
+          "sigma_pb": 2246.273397412056,
+          "sigma_shift_from_no_extra_pb": -2.0616197618292063,
+          "included_in_total": false,
+          "sigma_shift_from_nominal_pb": -1.0308098809146031
+        }
+      ]
+    },
+    "estimator_order": {
+      "nominal_sigma_pb": 2247.3042072929707,
+      "value_pb": 0.6695218892564299,
+      "comparisons": [
+        {
+          "order_mode": "recompute_after_iso",
+          "stage_name": "mass_plus_iso",
+          "extra_bkg": 11340.63820310471,
+          "sigma_pb": 2247.3042072929707,
+          "sigma_shift_from_recompute_pb": 0.0,
+          "sigma_shift_from_nominal_pb": 0.0
+        },
+        {
+          "order_mode": "fixed_before_iso",
+          "stage_name": "mass_only",
+          "extra_bkg": 18706.502321887507,
+          "sigma_pb": 2246.6346854037142,
+          "sigma_shift_from_recompute_pb": -0.6695218892564299,
+          "sigma_shift_from_nominal_pb": -0.6695218892564299
+        }
+      ]
+    }
+  },
+  "total_systematic_pb": 0.9952784544525457,
+  "combination_mode": "conservative_envelope"
+}

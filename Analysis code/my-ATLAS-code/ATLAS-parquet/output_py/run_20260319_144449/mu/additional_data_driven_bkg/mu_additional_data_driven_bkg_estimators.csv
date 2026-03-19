@@ -1,0 +1,6 @@
+method,estimate_raw,estimate_clipped,description,included_in_total
+none,0.0,0.0,No additional estimator applied,False
+wrong_flavour,19585.2023497309,19585.2023497309,Average wrong-flavour residual,True
+wrong_charge,3096.074056478522,3096.074056478522,Wrong-charge residual from mumu_ss,True
+both_average,11340.63820310471,11340.63820310471,Average of wrong-flavour and wrong-charge estimators,True
+both_sum,22681.27640620942,22681.27640620942,Sum of wrong-flavour and wrong-charge estimators (debug),False
