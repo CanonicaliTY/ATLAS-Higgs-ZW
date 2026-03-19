@@ -36,7 +36,7 @@ from __future__ import annotations
 SETTINGS = {
     # Which channel(s) to run?
     # ("mu",) ; ("e",) ; ("mu","e")
-    "LEPTONS": ("e",),
+    "LEPTONS": ("mu",),
 
     # Fractions
     "FRACTION": 1.0,   # fraction used when READING for the analysis stage
@@ -54,7 +54,7 @@ SETTINGS = {
         "ETCONE_RANGE": (0.0, 20.0),
         "ETCONE_STEP": 1,  # defaults to 0.25
         # can be a float or a dict {"mu": ..., "e": ...}
-        "OS_SIG_EFF_MIN": {"mu": 0.995, "e": 0.98},
+        "OS_SIG_EFF_MIN": {"mu": 0.995, "e": 0.995},
     },
     # used only if USE_SCAN=False
     "FIXED_ISO": {"ptcone_max": 4.5, "etcone_max": 9.25},
