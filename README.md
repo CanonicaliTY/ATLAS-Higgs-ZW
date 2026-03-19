@@ -1,4 +1,4 @@
-# ATLAS Open Data Z->ll Analysis
+# ATLAS Open Data Dilepton Analysis
 
 This directory contains a refactored ATLAS Open Data dilepton analysis for the Manchester 3rd-year lab. The code measures the Z->ll cross section with a cut-and-count method,
 
