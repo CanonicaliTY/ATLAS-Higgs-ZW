@@ -7,12 +7,8 @@ import pandas as pd
 
 from config import DD_METHODS
 from cross_section import compute_significance
+from utils import progress_iter
 from visualisation import select_plotdict, summarize
-
-try:
-    from tqdm.auto import tqdm
-except Exception:  # pragma: no cover
-    tqdm = None
 
 
 def scan_isolation(
@@ -38,8 +34,12 @@ def scan_isolation(
     total_points = int(len(ptcone_values) * len(etcone_values))
 
     iterator = ((float(ptcone), float(etcone)) for ptcone in ptcone_values for etcone in etcone_values)
-    if tqdm is not None:
-        iterator = tqdm(iterator, total=total_points, desc=f"{progress_label or 'iso'} iso scan", unit="pt")
+    iterator = progress_iter(
+        iterator,
+        total=total_points,
+        desc=f"{progress_label or 'iso'} iso scan",
+        unit="pt",
+    )
 
     rows = []
     for ptcone_max, etcone_max in iterator:
@@ -101,7 +101,9 @@ def build_scan_diagnostics_table(
     cut_point_evaluator: Callable[[float, float], dict],
 ) -> pd.DataFrame:
     rows = []
-    for row in scan_table.to_dict(orient="records"):
+    scan_rows = scan_table.to_dict(orient="records")
+    iterator = progress_iter(scan_rows, total=len(scan_rows), desc="scan diagnostics", unit="pt")
+    for row in iterator:
         evaluation = cut_point_evaluator(float(row["ptcone_max"]), float(row["etcone_max"]))
         sigma_results = evaluation["sigma_results_table"].set_index("method")
         rows.append(
@@ -206,4 +208,3 @@ def monotonicity_summary_text(classification_table: pd.DataFrame) -> str:
         lines.append(counts.to_string(index=False))
         lines.append("")
     return "\n".join(lines).strip()
-

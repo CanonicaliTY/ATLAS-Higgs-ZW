@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 
 import pandas as pd
 
@@ -9,7 +10,7 @@ from control_regions import evaluate_cut_point, save_cut_point_report
 from parquet_io import load_main_events
 from scan import build_monotonicity_diagnostics, build_scan_diagnostics_table, monotonicity_summary_text, scan_isolation
 from systematics import evaluate_systematics
-from utils import ensure_environment, ensure_script_directory, import_backend, now_stamp, write_json, write_text
+from utils import ensure_environment, ensure_script_directory, import_backend, log_step, now_stamp, progress_iter, write_json, write_text
 from visualisation import (
     build_plot_dict,
     compose_image_grid,
@@ -32,58 +33,95 @@ def _save_scan_diagnostics_outputs(
     diagnostic_table.to_csv(output_dir / f"{lepton}_scan_diagnostics_full.csv", index=False)
     write_json(output_dir / f"{lepton}_scan_diagnostics_full.json", diagnostic_table.to_dict(orient="records"))
 
+    plot_tasks: list[tuple[str, Callable[[], None]]] = []
     if SETTINGS["ISO_SCAN"]["SAVE_HEATMAPS"]:
-        save_scan_heatmap(
-            diagnostic_table,
-            output_dir / f"{lepton}_heatmap_significance.png",
-            value_column="significance",
-            title=f"{lepton}: significance",
-            best_ptcone=best_ptcone,
-            best_etcone=best_etcone,
+        plot_tasks.append(
+            (
+                "significance heatmap",
+                lambda: save_scan_heatmap(
+                    diagnostic_table,
+                    output_dir / f"{lepton}_heatmap_significance.png",
+                    value_column="significance",
+                    title=f"{lepton}: significance",
+                    best_ptcone=best_ptcone,
+                    best_etcone=best_etcone,
+                ),
+            )
         )
         for method in DD_METHODS:
-            save_scan_heatmap(
-                diagnostic_table,
-                output_dir / f"{lepton}_heatmap_sigma_{method}.png",
-                value_column=f"sigma_pb_{method}",
-                title=f"{lepton}: sigma ({method})",
-                best_ptcone=best_ptcone,
-                best_etcone=best_etcone,
+            plot_tasks.append(
+                (
+                    f"sigma heatmap ({method})",
+                    lambda method=method: save_scan_heatmap(
+                        diagnostic_table,
+                        output_dir / f"{lepton}_heatmap_sigma_{method}.png",
+                        value_column=f"sigma_pb_{method}",
+                        title=f"{lepton}: sigma ({method})",
+                        best_ptcone=best_ptcone,
+                        best_etcone=best_etcone,
+                    ),
+                )
             )
 
     if SETTINGS["ISO_SCAN"]["SAVE_3D_PLOTS"]:
-        save_surface_plot(
-            diagnostic_table,
-            output_dir / f"{lepton}_surface_significance.png",
-            value_column="significance",
-            title=f"{lepton}: significance surface",
+        plot_tasks.append(
+            (
+                "significance surface",
+                lambda: save_surface_plot(
+                    diagnostic_table,
+                    output_dir / f"{lepton}_surface_significance.png",
+                    value_column="significance",
+                    title=f"{lepton}: significance surface",
+                ),
+            )
         )
         for method in DD_METHODS:
-            save_surface_plot(
-                diagnostic_table,
-                output_dir / f"{lepton}_surface_sigma_{method}.png",
-                value_column=f"sigma_pb_{method}",
-                title=f"{lepton}: sigma surface ({method})",
+            plot_tasks.append(
+                (
+                    f"sigma surface ({method})",
+                    lambda method=method: save_surface_plot(
+                        diagnostic_table,
+                        output_dir / f"{lepton}_surface_sigma_{method}.png",
+                        value_column=f"sigma_pb_{method}",
+                        title=f"{lepton}: sigma surface ({method})",
+                    ),
+                )
             )
 
     if SETTINGS["ISO_SCAN"]["SAVE_SLICE_PLOTS"]:
         for method in DD_METHODS:
-            save_slice_plot(
-                diagnostic_table,
-                output_dir / f"{lepton}_slice_sigma_{method}_vs_ptcone.png",
-                x_column="ptcone_max",
-                value_column=f"sigma_pb_{method}",
-                fixed_column="etcone_max",
-                title=f"{lepton}: sigma ({method}) vs ptcone at fixed etcone",
+            plot_tasks.append(
+                (
+                    f"sigma slice vs ptcone ({method})",
+                    lambda method=method: save_slice_plot(
+                        diagnostic_table,
+                        output_dir / f"{lepton}_slice_sigma_{method}_vs_ptcone.png",
+                        x_column="ptcone_max",
+                        value_column=f"sigma_pb_{method}",
+                        fixed_column="etcone_max",
+                        title=f"{lepton}: sigma ({method}) vs ptcone at fixed etcone",
+                    ),
+                )
             )
-            save_slice_plot(
-                diagnostic_table,
-                output_dir / f"{lepton}_slice_sigma_{method}_vs_etcone.png",
-                x_column="etcone_max",
-                value_column=f"sigma_pb_{method}",
-                fixed_column="ptcone_max",
-                title=f"{lepton}: sigma ({method}) vs etcone at fixed ptcone",
+            plot_tasks.append(
+                (
+                    f"sigma slice vs etcone ({method})",
+                    lambda method=method: save_slice_plot(
+                        diagnostic_table,
+                        output_dir / f"{lepton}_slice_sigma_{method}_vs_etcone.png",
+                        x_column="etcone_max",
+                        value_column=f"sigma_pb_{method}",
+                        fixed_column="ptcone_max",
+                        title=f"{lepton}: sigma ({method}) vs etcone at fixed ptcone",
+                    ),
+                )
             )
+
+    if plot_tasks:
+        log_step(f"[{lepton}] Saving scan diagnostic plots")
+        iterator = progress_iter(plot_tasks, total=len(plot_tasks), desc=f"{lepton} scan plots", unit="plot")
+        for _, task in iterator:
+            task()
 
     monotonicity = build_monotonicity_diagnostics(
         diagnostic_table=diagnostic_table,
@@ -117,9 +155,20 @@ def _save_scan_diagnostics_outputs(
     return summary_text
 
 
+def _write_scan_disabled_note(lepton: str, output_dir: Path) -> str:
+    note = (
+        "Isolation scan outputs were not produced for this run.\n"
+        "Reason: both ISO_SCAN['RUN_OPTIMISATION_SCAN'] and ISO_SCAN['RUN_SCAN_DIAGNOSTICS'] were False.\n"
+        "SAVE_HEATMAPS / SAVE_3D_PLOTS / SAVE_SLICE_PLOTS only control which scan plots are saved after a scan is enabled."
+    )
+    write_text(output_dir / f"{lepton}_scan_disabled.txt", note)
+    return note
+
+
 def run_channel(lepton: str, backend: dict, output_dir: Path) -> None:
     channel = CHANNELS[lepton]
     output_dir.mkdir(parents=True, exist_ok=True)
+    log_step(f"[{lepton}] Starting channel")
 
     plot_stacked_hist = backend["plot_stacked_hist"]
     produced_event_count = backend["produced_event_count"]
@@ -150,7 +199,10 @@ def run_channel(lepton: str, backend: dict, output_dir: Path) -> None:
     full_scan = None
     allowed_scan = None
     best_point = None
-    if SETTINGS["ISO_SCAN"]["RUN_OPTIMISATION_SCAN"] or SETTINGS["ISO_SCAN"]["RUN_SCAN_DIAGNOSTICS"]:
+    run_optimisation_scan = bool(SETTINGS["ISO_SCAN"]["RUN_OPTIMISATION_SCAN"])
+    run_scan_diagnostics = bool(SETTINGS["ISO_SCAN"]["RUN_SCAN_DIAGNOSTICS"])
+    if run_optimisation_scan or run_scan_diagnostics:
+        log_step(f"[{lepton}] Running isolation scan grid")
         full_scan, allowed_scan, best_point = scan_isolation(
             plot_os=plot_os,
             plot_ss=plot_ss,
@@ -166,8 +218,10 @@ def run_channel(lepton: str, backend: dict, output_dir: Path) -> None:
         full_scan.to_csv(iso_dir / f"{lepton}_iso_scan_full.csv", index=False)
         allowed_scan.to_csv(iso_dir / f"{lepton}_iso_scan_allowed.csv", index=False)
         best_point.to_frame("best").to_csv(iso_dir / f"{lepton}_iso_scan_best.csv")
+    else:
+        _write_scan_disabled_note(lepton, iso_dir)
 
-    if SETTINGS["ISO_SCAN"]["RUN_OPTIMISATION_SCAN"] and best_point is not None:
+    if run_optimisation_scan and best_point is not None:
         best_ptcone = float(best_point["ptcone_max"])
         best_etcone = float(best_point["etcone_max"])
         if SETTINGS["ISO_SCAN"]["SAVE_HEATMAPS"]:
@@ -240,7 +294,7 @@ def run_channel(lepton: str, backend: dict, output_dir: Path) -> None:
     dd_report = save_cut_point_report(lepton, cut_point_result, output_dir / "additional_data_driven_bkg")
 
     scan_diagnostic_summary = None
-    if SETTINGS["ISO_SCAN"]["RUN_SCAN_DIAGNOSTICS"]:
+    if run_scan_diagnostics:
         if full_scan is None:
             raise RuntimeError("Scan diagnostics requested but no scan grid was built.")
 
@@ -269,6 +323,9 @@ def run_channel(lepton: str, backend: dict, output_dir: Path) -> None:
             best_etcone=best_etcone,
             output_dir=iso_dir,
         )
+
+    if scan_diagnostic_summary is None and not (run_optimisation_scan or run_scan_diagnostics):
+        scan_diagnostic_summary = (iso_dir / f"{lepton}_scan_disabled.txt").read_text(encoding="utf-8")
 
     systematics_result = evaluate_systematics(
         lepton=lepton,
@@ -340,6 +397,7 @@ def run_channel(lepton: str, backend: dict, output_dir: Path) -> None:
             "scan_diagnostics_summary": scan_diagnostic_summary,
         },
     )
+    log_step(f"[{lepton}] Finished channel")
 
 
 def main() -> None:
@@ -351,7 +409,8 @@ def main() -> None:
     run_root.mkdir(parents=True, exist_ok=True)
     write_json(run_root / "settings.json", SETTINGS)
 
-    for lepton in SETTINGS["LEPTONS"]:
+    iterator = progress_iter(SETTINGS["LEPTONS"], total=len(SETTINGS["LEPTONS"]), desc="channels", unit="channel")
+    for lepton in iterator:
         run_channel(lepton, backend, run_root / lepton)
 
     print(f"All done. Outputs saved under: {run_root}")

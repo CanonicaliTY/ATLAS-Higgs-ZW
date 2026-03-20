@@ -1,6 +1,0 @@
-component,nominal_sigma_pb,value_pb,included_in_total,note
-isolation_neighbour,2247.3042072929707,0.0,True,Local grid-neighbour envelope around the nominal isolation working point.
-isolation_global_allowed_envelope,2247.3042072929707,0.0,False,Diagnostic envelope over the allowed isolation scan.
-mass_window,2247.3042072929707,0.9952784544525457,True,Small Z-window variations around the nominal mass window.
-estimator_method,2247.3042072929707,0.7493915275290419,True,"Spread among wrong_flavour, wrong_charge, and both_average."
-estimator_order,2247.3042072929707,0.6695218892564299,True,Difference between recompute_after_iso and fixed_before_iso.

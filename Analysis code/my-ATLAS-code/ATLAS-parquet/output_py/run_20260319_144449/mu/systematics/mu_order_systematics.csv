@@ -1,3 +1,0 @@
-order_mode,stage_name,extra_bkg,sigma_pb,sigma_shift_from_recompute_pb,sigma_shift_from_nominal_pb
-recompute_after_iso,mass_plus_iso,11340.63820310471,2247.3042072929707,0.0,0.0
-fixed_before_iso,mass_only,18706.502321887507,2246.6346854037142,-0.6695218892564299,-0.6695218892564299

@@ -34,10 +34,21 @@ SETTINGS = {
         # Usually leave this alone; it prevents the scan from choosing
         # isolation cuts that destroy the OS signal efficiency.
         "OS_SIG_EFF_MIN": {"mu": 0.995, "e": 0.995},
+        # These save flags only do anything if the corresponding scan is enabled.
         "SAVE_HEATMAPS": True,
-        "SAVE_3D_PLOTS": False,
+        "SAVE_3D_PLOTS": True,
         "SAVE_SLICE_PLOTS": True,
         "MONOTONICITY_TOL_ABS": 1e-4,
+    },
+
+    # Keep the terminal concise by default and show progress bars for the
+    # genuinely slow stages.
+    "TERMINAL": {
+        "QUIET_BACKEND_OUTPUT": True,
+        "SHOW_STAGE_LOGS": True,
+    },
+    "PROGRESS": {
+        "ENABLED": True,
     },
 
     # If APPLY is True, require the Medium-ID field whenever it exists.
@@ -197,4 +208,3 @@ def user_facing_sample_label(sample_code: str) -> str:
     if sample_code in {"m10_40_Zee", "m10_40_Zmumu"}:
         return f"Signal (LowMassDY {sample_code})"
     return sample_code
-

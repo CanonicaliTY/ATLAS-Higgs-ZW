@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,11 @@ import awkward as ak
 import pyarrow.parquet as pq
 
 from config import SCRIPT_DIR, SETTINGS
+
+try:
+    from tqdm.auto import tqdm
+except Exception:  # pragma: no cover
+    tqdm = None
 
 
 def ensure_script_directory() -> None:
@@ -28,6 +34,11 @@ def now_stamp() -> str:
 
 def ensure_parent(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+
+
+def log_step(message: str) -> None:
+    if SETTINGS["TERMINAL"]["SHOW_STAGE_LOGS"]:
+        print(message, flush=True)
 
 
 def safe_rmtree(path: Path) -> None:
@@ -44,6 +55,33 @@ def write_json(path: Path, obj: Any) -> None:
 def write_text(path: Path, text: str) -> None:
     ensure_parent(path)
     path.write_text(text, encoding="utf-8")
+
+
+def progress_iter(iterable, *, total: int | None = None, desc: str, unit: str = "it"):
+    if not SETTINGS["PROGRESS"]["ENABLED"] or tqdm is None:
+        return iterable
+    return tqdm(iterable, total=total, desc=desc, unit=unit)
+
+
+@contextlib.contextmanager
+def quiet_backend_output():
+    if not SETTINGS["TERMINAL"]["QUIET_BACKEND_OUTPUT"]:
+        yield
+        return
+
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    with (
+        contextlib.redirect_stdout(stdout_buffer),
+        contextlib.redirect_stderr(stderr_buffer),
+        warnings.catch_warnings(),
+    ):
+        warnings.filterwarnings(
+            "ignore",
+            message="FigureCanvasAgg is non-interactive, and thus cannot be shown",
+            category=UserWarning,
+        )
+        yield
 
 
 def _pip_install(requirement: str) -> None:
@@ -92,12 +130,19 @@ def import_backend() -> dict[str, Any]:
         validate_read_variables,
     )
 
+    def _wrap(func):
+        def wrapped(*args, **kwargs):
+            with quiet_backend_output():
+                return func(*args, **kwargs)
+
+        return wrapped
+
     return {
-        "analysis_parquet": analysis_parquet,
-        "get_valid_variables": get_valid_variables,
-        "plot_stacked_hist": plot_stacked_hist,
+        "analysis_parquet": _wrap(analysis_parquet),
+        "get_valid_variables": _wrap(get_valid_variables),
+        "plot_stacked_hist": _wrap(plot_stacked_hist),
         "produced_event_count": produced_event_count,
-        "validate_read_variables": validate_read_variables,
+        "validate_read_variables": _wrap(validate_read_variables),
     }
 
 
@@ -186,4 +231,3 @@ def produced_sumw(
     if cache is not None:
         cache[cache_key] = value
     return value
-

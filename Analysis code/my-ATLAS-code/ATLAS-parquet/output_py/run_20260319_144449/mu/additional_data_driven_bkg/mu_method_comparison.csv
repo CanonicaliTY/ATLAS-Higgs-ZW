@@ -1,5 +1,0 @@
-method,order_mode,stage_name,extra_bkg,sigma_pb,sigma_shift_from_no_extra_pb,included_in_total
-wrong_flavour,recompute_after_iso,mass_plus_iso,19585.2023497309,2246.5548157654416,-1.780201408443645,True
-wrong_charge,recompute_after_iso,mass_plus_iso,3096.074056478522,2248.0535988204992,-0.28141835338601595,True
-both_average,recompute_after_iso,mass_plus_iso,11340.63820310471,2247.3042072929707,-1.0308098809146031,True
-both_sum,recompute_after_iso,mass_plus_iso,22681.27640620942,2246.273397412056,-2.0616197618292063,False

@@ -6,7 +6,7 @@ import pandas as pd
 
 from config import DD_METHODS, SETTINGS
 from control_regions import evaluate_cut_point, serialise_cut_point_result
-from utils import write_json, write_text
+from utils import log_step, progress_iter, write_json, write_text
 
 
 def _mass_window_label(mass_window: tuple[float, float]) -> str:
@@ -36,7 +36,10 @@ def evaluate_systematics(
 
     mass_variation_rows = []
     detailed_variations = []
-    for varied_mass_window in SETTINGS["SYSTEMATICS"]["MASS_WINDOW_VARIATIONS"]:
+    variations = SETTINGS["SYSTEMATICS"]["MASS_WINDOW_VARIATIONS"]
+    log_step(f"[{lepton}] Evaluating mass-window variations")
+    iterator = progress_iter(variations, total=len(variations), desc=f"{lepton} mass syst", unit="window")
+    for varied_mass_window in iterator:
         if float(varied_mass_window[0]) <= 40.0:
             raise ValueError(
                 "Mass-window variations must stay above the 40 GeV threshold of the primary signal samples. "
@@ -133,4 +136,3 @@ def evaluate_systematics(
     }
     write_json(systematics_dir / f"{lepton}_systematics.json", result)
     return result
-

@@ -29,7 +29,9 @@ from selections import (
 from utils import (
     infer_sample_code_from_name,
     is_data_sample,
+    log_step,
     now_stamp,
+    progress_iter,
     safe_rmtree,
     tight_fields_of_subdir,
     write_json,
@@ -158,8 +160,10 @@ def ensure_main_tight_parquet(lepton: str, backend: dict) -> Path:
 
     root = tight_root("main", lepton)
     if root.exists() and manifest_complete(root) and not SETTINGS["TIGHT_PARQUET"]["FORCE_REBUILD"]:
+        log_step(f"[{lepton}] Reusing main tight parquet")
         return root
 
+    log_step(f"[{lepton}] Building main tight parquet")
     reset_root_for_rebuild(root)
 
     build_fraction = SETTINGS["TIGHT_PARQUET"]["BUILD_FRACTION"]
@@ -167,7 +171,9 @@ def ensure_main_tight_parquet(lepton: str, backend: dict) -> Path:
     sample_rows = []
     subdirs = []
 
-    for sample_code in CHANNELS[lepton]["string_codes"]:
+    sample_codes = CHANNELS[lepton]["string_codes"]
+    iterator = progress_iter(sample_codes, total=len(sample_codes), desc=f"{lepton} main parquet", unit="sample")
+    for sample_code in iterator:
         raw_fields = set(available_raw_fields(sample_code, backend))
         medium_field = choose_medium_field(sample_code, backend)
         apply_medium_id, reason = should_apply_medium_id(sample_code, medium_field)
@@ -229,15 +235,19 @@ def ensure_main_tight_parquet(lepton: str, backend: dict) -> Path:
 def ensure_control_tight_parquet(backend: dict) -> Path:
     root = tight_root("control")
     if root.exists() and manifest_complete(root) and not SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["FORCE_REBUILD"]:
+        log_step("[control] Reusing control tight parquet")
         return root
 
+    log_step("[control] Building control tight parquet")
     reset_root_for_rebuild(root)
 
     build_fraction = SETTINGS["TIGHT_PARQUET"]["BUILD_FRACTION"]
     sample_rows = []
     subdirs = []
 
-    for sample_code in control_sample_codes_for_build():
+    control_samples = control_sample_codes_for_build()
+    iterator = progress_iter(control_samples, total=len(control_samples), desc="control parquet", unit="sample")
+    for sample_code in iterator:
         raw_fields = set(available_raw_fields(sample_code, backend))
         medium_field = choose_medium_field(sample_code, backend)
         apply_medium_id, reason = should_apply_medium_id(sample_code, medium_field)
@@ -321,7 +331,8 @@ def load_tight_subdirs(
 ) -> dict:
     analysis_parquet = backend["analysis_parquet"]
     loaded = {}
-    for subdir_name in subdirs:
+    iterator = progress_iter(subdirs, total=len(subdirs), desc=f"load {root.name}", unit="sample")
+    for subdir_name in iterator:
         subdir = root / subdir_name
         available_fields = set(tight_fields_of_subdir(subdir))
         read_vars = [field for field in needed_fields if field in available_fields]
@@ -346,6 +357,7 @@ def load_main_events(lepton: str, sign: str, backend: dict) -> dict:
         manifest = read_manifest(root)
         if manifest is None:
             raise RuntimeError(f"Missing manifest under {root}")
+        log_step(f"[{lepton}] Loading {sign} events from tight parquet")
         return load_tight_subdirs(
             root=root,
             subdirs=manifest["subdirs"],
@@ -430,13 +442,19 @@ def accumulate_control_stage_totals_from_tight_chunks(
         for stage_name in stage_selectors
     }
 
+    log_step(f"[{lepton}] Accumulating control-region yields")
+
+    relevant_subdirs = []
     for subdir_name in manifest["subdirs"]:
         sample_code = subdir_to_sample.get(subdir_name)
         if sample_code is None:
             sample_code = infer_sample_code_from_name(subdir_name, list(relevant_samples))
         if sample_code is None or sample_code not in relevant_samples:
             continue
+        relevant_subdirs.append((subdir_name, sample_code))
 
+    iterator = progress_iter(relevant_subdirs, total=len(relevant_subdirs), desc=f"{lepton} control", unit="sample")
+    for subdir_name, sample_code in iterator:
         subdir = root / subdir_name
         for parquet_file in sorted(subdir.rglob("*.parquet")):
             parquet_handle = pq.ParquetFile(parquet_file)
