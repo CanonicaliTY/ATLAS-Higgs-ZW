@@ -1,0 +1,101 @@
+Channel: mu
+
+1. Nominal isolation working point
+nominal_ptcone = 4.5000
+nominal_etcone = 9.2500
+This fixed nominal point is used for after-cut plots, cutflow, the main cross section result, and systematics.
+
+2. OS cutflow
+       Step       Data       Signal    Background        S/B  Data/MC
+   Baseline 28137180.0 2.633897e+07 258351.489337 101.950126 1.057895
+Mass window 25225570.0 2.456177e+07  77841.945497 315.533802 1.023781
+   Iso only 27078241.0 2.620903e+07 256428.405497 102.208002 1.023154
+ Mass + Iso 24812658.0 2.443804e+07  77183.440591 316.622890 1.012132
+
+3. SS cutflow
+       Step    Data     Signal  Background      S/B  Data/MC
+   Baseline 34029.0 417.560480 5433.832889 0.076845 5.815538
+Mass window  8607.0 128.781854 1459.752869 0.088222 5.418201
+   Iso only 18465.0 417.683611 5295.083413 0.078881 3.232234
+ Mass + Iso  4626.0 128.369738 1401.556206 0.091591 3.023676
+
+4. Nominal cross section and uncertainty summary
+       method    sigma_pb  dsigma_stat_pb  dsigma_lumi_pb  dsigma_mass_window_pb  dsigma_isolation_pb
+         none 2248.335017        0.453948       38.221695               0.827316            13.726237
+wrong_flavour 2246.554816        0.453948       38.191432               1.111883            13.438425
+ wrong_charge 2248.053599        0.453948       38.216911               0.878674            13.608259
+ both_average 2247.304207        0.453948       38.204172               0.995278            13.523342
+
+5. Additional-background comparison summary
+       method    extra_bkg    sigma_pb  sigma_shift_pb  dsigma_stat_pb  dsigma_lumi_pb  epsilon  N_selected  N_bkg_total   N_sig_data  sigma_valid sigma_error
+         none     0.000000 2248.335017        0.000000        0.453948       38.221695 0.359532  24812658.0 77200.510483 2.473546e+07         True            
+wrong_flavour 19585.202350 2246.554816       -1.780201        0.453948       38.191432 0.359532  24812658.0 96785.712833 2.471587e+07         True            
+ wrong_charge  3096.074056 2248.053599       -0.281418        0.453948       38.216911 0.359532  24812658.0 80296.584540 2.473236e+07         True            
+ both_average 11340.638203 2247.304207       -1.030810        0.453948       38.204172 0.359532  24812658.0 88541.148686 2.472412e+07         True            
+
+6. Regions table
+ region   N_data         N_MC      residual  clipped_residual
+ ep_mum 103852.0 84263.646498  19588.353502      19588.353502
+ mup_em 105719.0 86136.948803  19582.051197      19582.051197
+  ee_ss 216569.0  3283.205193 213285.794807     213285.794807
+mumu_ss   4626.0  1529.925944   3096.074056       3096.074056
+
+7. Estimators table
+       method  estimate_raw  estimate_clipped                               description
+         none      0.000000          0.000000 Baseline with no additional DD background
+wrong_flavour  19585.202350      19585.202350            Average wrong-flavour residual
+ wrong_charge   3096.074056       3096.074056        Wrong-charge residual from mumu_ss
+ both_average  11340.638203      11340.638203 Average of wrong_flavour and wrong_charge
+
+8. Comparison sigma if applied
+       method    extra_bkg    sigma_pb  sigma_shift_pb  dsigma_stat_pb  dsigma_lumi_pb  epsilon  N_selected  N_bkg_total   N_sig_data  sigma_valid sigma_error
+wrong_flavour 19585.202350 2246.554816       -1.780201        0.453948       38.191432 0.359532  24812658.0 96785.712833 2.471587e+07         True            
+ wrong_charge  3096.074056 2248.053599       -0.281418        0.453948       38.216911 0.359532  24812658.0 80296.584540 2.473236e+07         True            
+ both_average 11340.638203 2247.304207       -1.030810        0.453948       38.204172 0.359532  24812658.0 88541.148686 2.472412e+07         True            
+
+9. Isolation scan diagnostic summary
+Isolation scan diagnostics quantify residual dependence around the fixed nominal isolation working point.
+The scan is diagnostic/systematic input only; it does not choose the final cut.
+Scan mode: local_box
+Evaluated DD methods: none, wrong_flavour, wrong_charge, both_average
+Scan points with defined sigma values: 25/25
+
+Sigma ranges across the diagnostic region:
+none: sigma in [2234.608780, 2257.120647] pb, |Δsigma| in [0.000000, 13.726237] pb, fractional |Δsigma| in [0.000000, 0.006105]
+wrong_flavour: sigma in [2233.116390, 2255.071132] pb, |Δsigma| in [0.000000, 13.438425] pb, fractional |Δsigma| in [0.000000, 0.005982]
+wrong_charge: sigma in [2234.445339, 2256.729326] pb, |Δsigma| in [0.000000, 13.608259] pb, fractional |Δsigma| in [0.000000, 0.006053]
+both_average: sigma in [2233.780865, 2255.900229] pb, |Δsigma| in [0.000000, 13.523342] pb, fractional |Δsigma| in [0.000000, 0.006018]
+
+Monotonicity and plateau summary:
+Method: none
+fixed_axis       classification  count
+etcone_max monotonic increasing      5
+ptcone_max monotonic increasing      5
+no clear plateau was seen in the scanned region
+
+Method: wrong_flavour
+fixed_axis       classification  count
+etcone_max monotonic increasing      5
+ptcone_max monotonic increasing      5
+no clear plateau was seen in the scanned region
+
+Method: wrong_charge
+fixed_axis       classification  count
+etcone_max monotonic increasing      5
+ptcone_max monotonic increasing      5
+no clear plateau was seen in the scanned region
+
+Method: both_average
+fixed_axis       classification  count
+etcone_max monotonic increasing      5
+ptcone_max monotonic increasing      5
+no clear plateau was seen in the scanned region
+
+Local stability near the nominal point:
+none: nearest point at (ptcone=3.500, etcone=9.250) gives Δsigma=-3.769868 pb, |Δsigma|=3.769868 pb, fractional |Δsigma|=0.001677.
+wrong_flavour: nearest point at (ptcone=3.500, etcone=9.250) gives Δsigma=-3.644463 pb, |Δsigma|=3.644463 pb, fractional |Δsigma|=0.001622.
+wrong_charge: nearest point at (ptcone=3.500, etcone=9.250) gives Δsigma=-3.716855 pb, |Δsigma|=3.716855 pb, fractional |Δsigma|=0.001653.
+both_average: nearest point at (ptcone=3.500, etcone=9.250) gives Δsigma=-3.680659 pb, |Δsigma|=3.680659 pb, fractional |Δsigma|=0.001638.
+
+Interpretation note:
+A clear plateau is not required. Monotonic sigma behaviour across the scanned region is an acceptable diagnostic outcome.

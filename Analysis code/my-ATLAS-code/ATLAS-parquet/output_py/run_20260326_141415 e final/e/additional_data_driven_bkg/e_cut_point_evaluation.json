@@ -1,0 +1,322 @@
+{
+  "channel": "e",
+  "cuts": {
+    "mass_window": [
+      66.0,
+      116.0
+    ],
+    "ptcone_max": 4.5,
+    "etcone_max": 9.25,
+    "require_both_iso": true
+  },
+  "signal_region_yields": {
+    "Data": 19390459.0,
+    "Signal": 19459149.152745858,
+    "Background": 91023.60527765799,
+    "S/B": 213.78134928173586,
+    "Data/MC": 0.9918305705018403
+  },
+  "ss_yields": {
+    "Data": 216569.0,
+    "Signal": 237787.98771890101,
+    "Background": 14367.87506844581,
+    "S/B": 16.549976011492618,
+    "Data/MC": 0.8588695801320366
+  },
+  "stage_totals": {
+    "baseline": {
+      "data_counts": {
+        "ordered_11_13": 1095059.0,
+        "ordered_13_11": 0.0,
+        "ep_mum": 450597.0,
+        "mup_em": 460067.0,
+        "ee_ss": 387416.0,
+        "mumu_ss": 34029.0
+      },
+      "mc_counts": {
+        "ordered_11_13": 557164.9113039928,
+        "ordered_13_11": 0.0,
+        "ep_mum": 265332.79814516974,
+        "mup_em": 265418.2714439065,
+        "ee_ss": 26120.27628654307,
+        "mumu_ss": 2127.57471411527
+      },
+      "mc_samples_included": [
+        "Ztautau",
+        "ttbar"
+      ]
+    },
+    "mass_only": {
+      "data_counts": {
+        "ordered_11_13": 293068.0,
+        "ordered_13_11": 0.0,
+        "ep_mum": 123321.0,
+        "mup_em": 125476.0,
+        "ee_ss": 240030.0,
+        "mumu_ss": 8607.0
+      },
+      "mc_counts": {
+        "ordered_11_13": 167154.31750101756,
+        "ordered_13_11": 0.0,
+        "ep_mum": 79603.1527183132,
+        "mup_em": 79087.31755267478,
+        "ee_ss": 8561.528317991017,
+        "mumu_ss": 724.7155942923773
+      },
+      "mc_samples_included": [
+        "Ztautau",
+        "ttbar"
+      ]
+    },
+    "mass_plus_iso": {
+      "data_counts": {
+        "ordered_11_13": 233675.0,
+        "ordered_13_11": 0.0,
+        "ep_mum": 103852.0,
+        "mup_em": 105719.0,
+        "ee_ss": 216569.0,
+        "mumu_ss": 4626.0
+      },
+      "mc_counts": {
+        "ordered_11_13": 154615.8153441547,
+        "ordered_13_11": 0.0,
+        "ep_mum": 75680.85443841692,
+        "mup_em": 75146.44269778798,
+        "ee_ss": 3285.084907310382,
+        "mumu_ss": 678.8165784311581
+      },
+      "mc_samples_included": [
+        "Ztautau",
+        "ttbar"
+      ]
+    }
+  },
+  "regions_table": [
+    {
+      "region": "ep_mum",
+      "N_data": 103852.0,
+      "N_MC": 75680.85443841692,
+      "residual": 28171.14556158308,
+      "clipped_residual": 28171.14556158308
+    },
+    {
+      "region": "mup_em",
+      "N_data": 105719.0,
+      "N_MC": 75146.44269778798,
+      "residual": 30572.557302212022,
+      "clipped_residual": 30572.557302212022
+    },
+    {
+      "region": "ee_ss",
+      "N_data": 216569.0,
+      "N_MC": 3285.084907310382,
+      "residual": 213283.91509268963,
+      "clipped_residual": 213283.91509268963
+    },
+    {
+      "region": "mumu_ss",
+      "N_data": 4626.0,
+      "N_MC": 678.8165784311581,
+      "residual": 3947.183421568842,
+      "clipped_residual": 3947.183421568842
+    }
+  ],
+  "estimators_table": [
+    {
+      "method": "none",
+      "estimate_raw": 0.0,
+      "estimate_clipped": 0.0,
+      "description": "Baseline with no additional DD background"
+    },
+    {
+      "method": "wrong_flavour",
+      "estimate_raw": 29371.85143189755,
+      "estimate_clipped": 29371.85143189755,
+      "description": "Average wrong-flavour residual"
+    },
+    {
+      "method": "wrong_charge",
+      "estimate_raw": 213283.91509268963,
+      "estimate_clipped": 213283.91509268963,
+      "description": "Wrong-charge residual from ee_ss"
+    },
+    {
+      "method": "both_average",
+      "estimate_raw": 121327.88326229359,
+      "estimate_clipped": 121327.88326229359,
+      "description": "Average of wrong_flavour and wrong_charge"
+    }
+  ],
+  "sigma_results_table": [
+    {
+      "method": "none",
+      "extra_bkg": 0.0,
+      "sigma_pb": 2203.0683107800855,
+      "sigma_shift_pb": 0.0,
+      "dsigma_stat_pb": 0.506268505936474,
+      "dsigma_lumi_pb": 37.452161283261454,
+      "epsilon": 0.2862819672944199,
+      "N_selected": 19390459.0,
+      "N_bkg_total": 91077.85912001003,
+      "N_sig_data": 19299381.14087999,
+      "sigma_valid": true,
+      "sigma_error": ""
+    },
+    {
+      "method": "wrong_flavour",
+      "extra_bkg": 29371.85143189755,
+      "sigma_pb": 2199.715447045948,
+      "sigma_shift_pb": -3.3528637341373724,
+      "dsigma_stat_pb": 0.506268505936474,
+      "dsigma_lumi_pb": 37.39516259978112,
+      "epsilon": 0.2862819672944199,
+      "N_selected": 19390459.0,
+      "N_bkg_total": 120449.71055190758,
+      "N_sig_data": 19270009.289448094,
+      "sigma_valid": true,
+      "sigma_error": ""
+    },
+    {
+      "method": "wrong_charge",
+      "extra_bkg": 213283.91509268963,
+      "sigma_pb": 2178.72146612689,
+      "sigma_shift_pb": -24.346844653195603,
+      "dsigma_stat_pb": 0.506268505936474,
+      "dsigma_lumi_pb": 37.03826492415713,
+      "epsilon": 0.2862819672944199,
+      "N_selected": 19390459.0,
+      "N_bkg_total": 304361.7742126997,
+      "N_sig_data": 19086097.2257873,
+      "sigma_valid": true,
+      "sigma_error": ""
+    },
+    {
+      "method": "both_average",
+      "extra_bkg": 121327.88326229359,
+      "sigma_pb": 2189.218456586419,
+      "sigma_shift_pb": -13.849854193666488,
+      "dsigma_stat_pb": 0.506268505936474,
+      "dsigma_lumi_pb": 37.216713761969125,
+      "epsilon": 0.2862819672944199,
+      "N_selected": 19390459.0,
+      "N_bkg_total": 212405.74238230364,
+      "N_sig_data": 19178053.257617697,
+      "sigma_valid": true,
+      "sigma_error": ""
+    }
+  ],
+  "comparison_sigma_if_applied": [
+    {
+      "method": "wrong_flavour",
+      "extra_bkg": 29371.85143189755,
+      "sigma_pb": 2199.715447045948,
+      "sigma_shift_pb": -3.3528637341373724,
+      "dsigma_stat_pb": 0.506268505936474,
+      "dsigma_lumi_pb": 37.39516259978112,
+      "epsilon": 0.2862819672944199,
+      "N_selected": 19390459.0,
+      "N_bkg_total": 120449.71055190758,
+      "N_sig_data": 19270009.289448094,
+      "sigma_valid": true,
+      "sigma_error": ""
+    },
+    {
+      "method": "wrong_charge",
+      "extra_bkg": 213283.91509268963,
+      "sigma_pb": 2178.72146612689,
+      "sigma_shift_pb": -24.346844653195603,
+      "dsigma_stat_pb": 0.506268505936474,
+      "dsigma_lumi_pb": 37.03826492415713,
+      "epsilon": 0.2862819672944199,
+      "N_selected": 19390459.0,
+      "N_bkg_total": 304361.7742126997,
+      "N_sig_data": 19086097.2257873,
+      "sigma_valid": true,
+      "sigma_error": ""
+    },
+    {
+      "method": "both_average",
+      "extra_bkg": 121327.88326229359,
+      "sigma_pb": 2189.218456586419,
+      "sigma_shift_pb": -13.849854193666488,
+      "dsigma_stat_pb": 0.506268505936474,
+      "dsigma_lumi_pb": 37.216713761969125,
+      "epsilon": 0.2862819672944199,
+      "N_selected": 19390459.0,
+      "N_bkg_total": 212405.74238230364,
+      "N_sig_data": 19178053.257617697,
+      "sigma_valid": true,
+      "sigma_error": ""
+    }
+  ],
+  "os_cutflow": [
+    {
+      "Step": "Baseline",
+      "Data": 21816133.0,
+      "Signal": 21178849.752137803,
+      "Background": 383028.7493401015,
+      "S/B": 55.293107341487136,
+      "Data/MC": 1.011791852852926
+    },
+    {
+      "Step": "Mass window",
+      "Data": 19709602.0,
+      "Signal": 19773347.312475838,
+      "Background": 108619.15243549415,
+      "S/B": 182.04291664141525,
+      "Data/MC": 0.991330612833719
+    },
+    {
+      "Step": "Iso only",
+      "Data": 21144802.0,
+      "Signal": 20802506.38425841,
+      "Background": 323474.80255075335,
+      "S/B": 64.30951103523586,
+      "Data/MC": 1.00089088468954
+    },
+    {
+      "Step": "Mass + Iso",
+      "Data": 19390459.0,
+      "Signal": 19459149.152745858,
+      "Background": 91023.60527765799,
+      "S/B": 213.78134928173586,
+      "Data/MC": 0.9918305705018403
+    }
+  ],
+  "ss_cutflow": [
+    {
+      "Step": "Baseline",
+      "Data": 387416.0,
+      "Signal": 269817.857161489,
+      "Background": 96096.1677266012,
+      "S/B": 2.8077899831462108,
+      "Data/MC": 1.0587623694349673
+    },
+    {
+      "Step": "Mass window",
+      "Data": 240030.0,
+      "Signal": 242160.86918514775,
+      "Background": 25492.881885785297,
+      "S/B": 9.499156284883407,
+      "Data/MC": 0.8967929612030273
+    },
+    {
+      "Step": "Iso only",
+      "Data": 302375.0,
+      "Signal": 262350.99320678867,
+      "Background": 58791.712345759996,
+      "S/B": 4.4623805420715765,
+      "Data/MC": 0.9415596081491016
+    },
+    {
+      "Step": "Mass + Iso",
+      "Data": 216569.0,
+      "Signal": 237787.98771890101,
+      "Background": 14367.87506844581,
+      "S/B": 16.549976011492618,
+      "Data/MC": 0.8588695801320366
+    }
+  ],
+  "debug_summary": "An index-ordering issue is present: ordered opposite-flavour counts are asymmetric even when physical wrong-flavour categories survive.\nbaseline control preselection: ordered opposite-flavour counts are one-sided ((11,13)=1095059.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass-only selection: ordered opposite-flavour counts are one-sided ((11,13)=293068.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass + iso selection: ordered opposite-flavour counts are one-sided ((11,13)=233675.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.",
+  "control_region_debug_summary": "An index-ordering issue is present: ordered opposite-flavour counts are asymmetric even when physical wrong-flavour categories survive.\nbaseline control preselection: ordered opposite-flavour counts are one-sided ((11,13)=1095059.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass-only selection: ordered opposite-flavour counts are one-sided ((11,13)=293068.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass + iso selection: ordered opposite-flavour counts are one-sided ((11,13)=233675.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering."
+}

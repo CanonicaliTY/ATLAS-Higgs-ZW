@@ -1,0 +1,24 @@
+An index-ordering issue is present: ordered opposite-flavour counts are asymmetric even when physical wrong-flavour categories survive.
+baseline control preselection: ordered opposite-flavour counts are one-sided ((11,13)=1095059.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.
+mass-only selection: ordered opposite-flavour counts are one-sided ((11,13)=293068.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.
+mass + iso selection: ordered opposite-flavour counts are one-sided ((11,13)=233675.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.
+
+        stage                   stage_label        region    N_data          N_MC      residual
+     baseline baseline control preselection ordered_11_13 1095059.0 557164.911304 537894.088696
+     baseline baseline control preselection ordered_13_11       0.0      0.000000      0.000000
+     baseline baseline control preselection        ep_mum  450597.0 265332.798145 185264.201855
+     baseline baseline control preselection        mup_em  460067.0 265418.271444 194648.728556
+     baseline baseline control preselection         ee_ss  387416.0  26120.276287 361295.723713
+     baseline baseline control preselection       mumu_ss   34029.0   2127.574714  31901.425286
+    mass_only           mass-only selection ordered_11_13  293068.0 167154.317501 125913.682499
+    mass_only           mass-only selection ordered_13_11       0.0      0.000000      0.000000
+    mass_only           mass-only selection        ep_mum  123321.0  79603.152718  43717.847282
+    mass_only           mass-only selection        mup_em  125476.0  79087.317553  46388.682447
+    mass_only           mass-only selection         ee_ss  240030.0   8561.528318 231468.471682
+    mass_only           mass-only selection       mumu_ss    8607.0    724.715594   7882.284406
+mass_plus_iso          mass + iso selection ordered_11_13  233675.0 154615.815344  79059.184656
+mass_plus_iso          mass + iso selection ordered_13_11       0.0      0.000000      0.000000
+mass_plus_iso          mass + iso selection        ep_mum  103852.0  75680.854438  28171.145562
+mass_plus_iso          mass + iso selection        mup_em  105719.0  75146.442698  30572.557302
+mass_plus_iso          mass + iso selection         ee_ss  216569.0   3285.084907 213283.915093
+mass_plus_iso          mass + iso selection       mumu_ss    4626.0    678.816578   3947.183422

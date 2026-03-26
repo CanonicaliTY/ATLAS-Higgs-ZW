@@ -1,0 +1,5 @@
+method,estimate_raw,estimate_clipped,description
+none,0.0,0.0,Baseline with no additional DD background
+wrong_flavour,29371.85143189755,29371.85143189755,Average wrong-flavour residual
+wrong_charge,213283.91509268963,213283.91509268963,Wrong-charge residual from ee_ss
+both_average,121327.88326229359,121327.88326229359,Average of wrong_flavour and wrong_charge

@@ -1,0 +1,45 @@
+Isolation scan diagnostics quantify residual dependence around the fixed nominal isolation working point.
+The scan is diagnostic/systematic input only; it does not choose the final cut.
+Scan mode: local_box
+Evaluated DD methods: none, wrong_flavour, wrong_charge, both_average
+Scan points with defined sigma values: 25/25
+
+Sigma ranges across the diagnostic region:
+none: sigma in [2193.809520, 2204.621896] pb, |Δsigma| in [0.000000, 9.258791] pb, fractional |Δsigma| in [0.000000, 0.004203]
+wrong_flavour: sigma in [2190.907270, 2201.160964] pb, |Δsigma| in [0.000000, 8.808177] pb, fractional |Δsigma| in [0.000000, 0.004004]
+wrong_charge: sigma in [2169.911740, 2180.196593] pb, |Δsigma| in [0.000000, 8.809726] pb, fractional |Δsigma| in [0.000000, 0.004044]
+both_average: sigma in [2180.409505, 2190.678779] pb, |Δsigma| in [0.000000, 8.808952] pb, fractional |Δsigma| in [0.000000, 0.004024]
+
+Monotonicity and plateau summary:
+Method: none
+fixed_axis       classification  count
+etcone_max monotonic increasing      5
+ptcone_max monotonic decreasing      5
+no clear plateau was seen in the scanned region
+
+Method: wrong_flavour
+fixed_axis       classification  count
+etcone_max        non-monotonic      5
+ptcone_max monotonic decreasing      5
+no clear plateau was seen in the scanned region
+
+Method: wrong_charge
+fixed_axis       classification  count
+etcone_max        non-monotonic      5
+ptcone_max monotonic decreasing      5
+no clear plateau was seen in the scanned region
+
+Method: both_average
+fixed_axis       classification  count
+etcone_max        non-monotonic      5
+ptcone_max monotonic decreasing      5
+no clear plateau was seen in the scanned region
+
+Local stability near the nominal point:
+none: nearest point at (ptcone=3.500, etcone=9.250) gives Δsigma=-1.746053 pb, |Δsigma|=1.746053 pb, fractional |Δsigma|=0.000793.
+wrong_flavour: nearest point at (ptcone=3.500, etcone=9.250) gives Δsigma=-1.511781 pb, |Δsigma|=1.511781 pb, fractional |Δsigma|=0.000687.
+wrong_charge: nearest point at (ptcone=3.500, etcone=9.250) gives Δsigma=-1.541247 pb, |Δsigma|=1.541247 pb, fractional |Δsigma|=0.000707.
+both_average: nearest point at (ptcone=3.500, etcone=9.250) gives Δsigma=-1.526514 pb, |Δsigma|=1.526514 pb, fractional |Δsigma|=0.000697.
+
+Interpretation note:
+A clear plateau is not required. Monotonic sigma behaviour across the scanned region is an acceptable diagnostic outcome.

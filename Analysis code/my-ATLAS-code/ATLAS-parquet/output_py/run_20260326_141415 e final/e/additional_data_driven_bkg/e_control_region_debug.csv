@@ -1,0 +1,19 @@
+stage,stage_label,region,N_data,N_MC,residual
+baseline,baseline control preselection,ordered_11_13,1095059.0,557164.9113039928,537894.0886960072
+baseline,baseline control preselection,ordered_13_11,0.0,0.0,0.0
+baseline,baseline control preselection,ep_mum,450597.0,265332.79814516974,185264.20185483026
+baseline,baseline control preselection,mup_em,460067.0,265418.2714439065,194648.72855609353
+baseline,baseline control preselection,ee_ss,387416.0,26120.27628654307,361295.72371345694
+baseline,baseline control preselection,mumu_ss,34029.0,2127.57471411527,31901.42528588473
+mass_only,mass-only selection,ordered_11_13,293068.0,167154.31750101756,125913.68249898244
+mass_only,mass-only selection,ordered_13_11,0.0,0.0,0.0
+mass_only,mass-only selection,ep_mum,123321.0,79603.1527183132,43717.8472816868
+mass_only,mass-only selection,mup_em,125476.0,79087.31755267478,46388.68244732522
+mass_only,mass-only selection,ee_ss,240030.0,8561.528317991017,231468.471682009
+mass_only,mass-only selection,mumu_ss,8607.0,724.7155942923773,7882.284405707623
+mass_plus_iso,mass + iso selection,ordered_11_13,233675.0,154615.8153441547,79059.18465584531
+mass_plus_iso,mass + iso selection,ordered_13_11,0.0,0.0,0.0
+mass_plus_iso,mass + iso selection,ep_mum,103852.0,75680.85443841692,28171.14556158308
+mass_plus_iso,mass + iso selection,mup_em,105719.0,75146.44269778798,30572.557302212022
+mass_plus_iso,mass + iso selection,ee_ss,216569.0,3285.084907310382,213283.91509268963
+mass_plus_iso,mass + iso selection,mumu_ss,4626.0,678.8165784311581,3947.183421568842

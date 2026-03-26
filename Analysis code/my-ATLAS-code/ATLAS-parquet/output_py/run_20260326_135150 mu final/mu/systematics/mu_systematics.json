@@ -1,0 +1,1720 @@
+{
+  "channel": "mu",
+  "nominal_cut_point": {
+    "channel": "mu",
+    "cuts": {
+      "mass_window": [
+        66.0,
+        116.0
+      ],
+      "ptcone_max": 4.5,
+      "etcone_max": 9.25,
+      "require_both_iso": true
+    },
+    "signal_region_yields": {
+      "Data": 24812658.0,
+      "Signal": 24438044.010613825,
+      "Background": 77183.44059119519,
+      "S/B": 316.62288987673907,
+      "Data/MC": 1.01213248171517
+    },
+    "ss_yields": {
+      "Data": 4626.0,
+      "Signal": 128.36973772597264,
+      "Background": 1401.556205795505,
+      "S/B": 0.09159085964241559,
+      "Data/MC": 3.0236757665225245
+    },
+    "stage_totals": {
+      "baseline": {
+        "data_counts": {
+          "ordered_11_13": 1095059.0,
+          "ordered_13_11": 0.0,
+          "ep_mum": 450597.0,
+          "mup_em": 460067.0,
+          "ee_ss": 387416.0,
+          "mumu_ss": 34029.0
+        },
+        "mc_counts": {
+          "ordered_11_13": 756632.6840792695,
+          "ordered_13_11": 0.0,
+          "ep_mum": 316974.3321790564,
+          "mup_em": 329344.67759227403,
+          "ee_ss": 26122.099358394193,
+          "mumu_ss": 5851.393368795236
+        },
+        "mc_samples_included": [
+          "Wmunu",
+          "Zmumu",
+          "Ztautau",
+          "m10_40_Zmumu",
+          "ttbar"
+        ]
+      },
+      "mass_only": {
+        "data_counts": {
+          "ordered_11_13": 293068.0,
+          "ordered_13_11": 0.0,
+          "ep_mum": 123321.0,
+          "mup_em": 125476.0,
+          "ee_ss": 240030.0,
+          "mumu_ss": 8607.0
+        },
+        "mc_counts": {
+          "ordered_11_13": 215715.32147317822,
+          "ordered_13_11": 0.0,
+          "ep_mum": 92916.0681144436,
+          "mup_em": 95091.85315248898,
+          "ee_ss": 8559.649493001292,
+          "mumu_ss": 1588.5347227586974
+        },
+        "mc_samples_included": [
+          "Wmunu",
+          "Zmumu",
+          "Ztautau",
+          "m10_40_Zmumu",
+          "ttbar"
+        ]
+      },
+      "mass_plus_iso": {
+        "data_counts": {
+          "ordered_11_13": 233675.0,
+          "ordered_13_11": 0.0,
+          "ep_mum": 103852.0,
+          "mup_em": 105719.0,
+          "ee_ss": 216569.0,
+          "mumu_ss": 4626.0
+        },
+        "mc_counts": {
+          "ordered_11_13": 187021.97387491562,
+          "ordered_13_11": 0.0,
+          "ep_mum": 84263.64649796403,
+          "mup_em": 86136.94880257417,
+          "ee_ss": 3283.2051927489797,
+          "mumu_ss": 1529.9259435214778
+        },
+        "mc_samples_included": [
+          "Wmunu",
+          "Zmumu",
+          "Ztautau",
+          "m10_40_Zmumu",
+          "ttbar"
+        ]
+      }
+    },
+    "regions_table": [
+      {
+        "region": "ep_mum",
+        "N_data": 103852.0,
+        "N_MC": 84263.64649796403,
+        "residual": 19588.35350203597,
+        "clipped_residual": 19588.35350203597
+      },
+      {
+        "region": "mup_em",
+        "N_data": 105719.0,
+        "N_MC": 86136.94880257417,
+        "residual": 19582.051197425826,
+        "clipped_residual": 19582.051197425826
+      },
+      {
+        "region": "ee_ss",
+        "N_data": 216569.0,
+        "N_MC": 3283.2051927489797,
+        "residual": 213285.79480725102,
+        "clipped_residual": 213285.79480725102
+      },
+      {
+        "region": "mumu_ss",
+        "N_data": 4626.0,
+        "N_MC": 1529.9259435214778,
+        "residual": 3096.074056478522,
+        "clipped_residual": 3096.074056478522
+      }
+    ],
+    "estimators_table": [
+      {
+        "method": "none",
+        "estimate_raw": 0.0,
+        "estimate_clipped": 0.0,
+        "description": "Baseline with no additional DD background"
+      },
+      {
+        "method": "wrong_flavour",
+        "estimate_raw": 19585.2023497309,
+        "estimate_clipped": 19585.2023497309,
+        "description": "Average wrong-flavour residual"
+      },
+      {
+        "method": "wrong_charge",
+        "estimate_raw": 3096.074056478522,
+        "estimate_clipped": 3096.074056478522,
+        "description": "Wrong-charge residual from mumu_ss"
+      },
+      {
+        "method": "both_average",
+        "estimate_raw": 11340.63820310471,
+        "estimate_clipped": 11340.63820310471,
+        "description": "Average of wrong_flavour and wrong_charge"
+      }
+    ],
+    "sigma_results_table": [
+      {
+        "method": "none",
+        "extra_bkg": 0.0,
+        "sigma_pb": 2248.3350171738853,
+        "sigma_shift_pb": 0.0,
+        "dsigma_stat_pb": 0.4539482001930883,
+        "dsigma_lumi_pb": 38.22169529195605,
+        "epsilon": 0.3595319548895429,
+        "N_selected": 24812658.0,
+        "N_bkg_total": 77200.51048308381,
+        "N_sig_data": 24735457.489516918,
+        "sigma_valid": true,
+        "sigma_error": ""
+      },
+      {
+        "method": "wrong_flavour",
+        "extra_bkg": 19585.2023497309,
+        "sigma_pb": 2246.5548157654416,
+        "sigma_shift_pb": -1.780201408443645,
+        "dsigma_stat_pb": 0.4539482001930883,
+        "dsigma_lumi_pb": 38.19143186801251,
+        "epsilon": 0.3595319548895429,
+        "N_selected": 24812658.0,
+        "N_bkg_total": 96785.71283281471,
+        "N_sig_data": 24715872.287167184,
+        "sigma_valid": true,
+        "sigma_error": ""
+      },
+      {
+        "method": "wrong_charge",
+        "extra_bkg": 3096.074056478522,
+        "sigma_pb": 2248.0535988204992,
+        "sigma_shift_pb": -0.28141835338601595,
+        "dsigma_stat_pb": 0.4539482001930883,
+        "dsigma_lumi_pb": 38.21691117994849,
+        "epsilon": 0.3595319548895429,
+        "N_selected": 24812658.0,
+        "N_bkg_total": 80296.58453956233,
+        "N_sig_data": 24732361.415460438,
+        "sigma_valid": true,
+        "sigma_error": ""
+      },
+      {
+        "method": "both_average",
+        "extra_bkg": 11340.63820310471,
+        "sigma_pb": 2247.3042072929707,
+        "sigma_shift_pb": -1.0308098809146031,
+        "dsigma_stat_pb": 0.4539482001930883,
+        "dsigma_lumi_pb": 38.204171523980506,
+        "epsilon": 0.3595319548895429,
+        "N_selected": 24812658.0,
+        "N_bkg_total": 88541.14868618852,
+        "N_sig_data": 24724116.85131381,
+        "sigma_valid": true,
+        "sigma_error": ""
+      }
+    ],
+    "comparison_sigma_if_applied": [
+      {
+        "method": "wrong_flavour",
+        "extra_bkg": 19585.2023497309,
+        "sigma_pb": 2246.5548157654416,
+        "sigma_shift_pb": -1.780201408443645,
+        "dsigma_stat_pb": 0.4539482001930883,
+        "dsigma_lumi_pb": 38.19143186801251,
+        "epsilon": 0.3595319548895429,
+        "N_selected": 24812658.0,
+        "N_bkg_total": 96785.71283281471,
+        "N_sig_data": 24715872.287167184,
+        "sigma_valid": true,
+        "sigma_error": ""
+      },
+      {
+        "method": "wrong_charge",
+        "extra_bkg": 3096.074056478522,
+        "sigma_pb": 2248.0535988204992,
+        "sigma_shift_pb": -0.28141835338601595,
+        "dsigma_stat_pb": 0.4539482001930883,
+        "dsigma_lumi_pb": 38.21691117994849,
+        "epsilon": 0.3595319548895429,
+        "N_selected": 24812658.0,
+        "N_bkg_total": 80296.58453956233,
+        "N_sig_data": 24732361.415460438,
+        "sigma_valid": true,
+        "sigma_error": ""
+      },
+      {
+        "method": "both_average",
+        "extra_bkg": 11340.63820310471,
+        "sigma_pb": 2247.3042072929707,
+        "sigma_shift_pb": -1.0308098809146031,
+        "dsigma_stat_pb": 0.4539482001930883,
+        "dsigma_lumi_pb": 38.204171523980506,
+        "epsilon": 0.3595319548895429,
+        "N_selected": 24812658.0,
+        "N_bkg_total": 88541.14868618852,
+        "N_sig_data": 24724116.85131381,
+        "sigma_valid": true,
+        "sigma_error": ""
+      }
+    ],
+    "os_cutflow": [
+      {
+        "Step": "Baseline",
+        "Data": 28137180.0,
+        "Signal": 26338967.014130034,
+        "Background": 258351.4893366066,
+        "S/B": 101.95012647987079,
+        "Data/MC": 1.0578953662690718
+      },
+      {
+        "Step": "Mass window",
+        "Data": 25225570.0,
+        "Signal": 24561765.011028,
+        "Background": 77841.94549650888,
+        "S/B": 315.53380191569806,
+        "Data/MC": 1.0237813470202424
+      },
+      {
+        "Step": "Iso only",
+        "Data": 27078241.0,
+        "Signal": 26209034.95904808,
+        "Background": 256428.40549653413,
+        "S/B": 102.20800191109218,
+        "Data/MC": 1.0231538600709449
+      },
+      {
+        "Step": "Mass + Iso",
+        "Data": 24812658.0,
+        "Signal": 24438044.010613825,
+        "Background": 77183.44059119519,
+        "S/B": 316.62288987673907,
+        "Data/MC": 1.01213248171517
+      }
+    ],
+    "ss_cutflow": [
+      {
+        "Step": "Baseline",
+        "Data": 34029.0,
+        "Signal": 417.5604798767642,
+        "Background": 5433.832888918472,
+        "S/B": 0.07684455676366479,
+        "Data/MC": 5.815537916399961
+      },
+      {
+        "Step": "Mass window",
+        "Data": 8607.0,
+        "Signal": 128.78185401727092,
+        "Background": 1459.7528687414263,
+        "S/B": 0.08822168243334531,
+        "Data/MC": 5.4182007334739435
+      },
+      {
+        "Step": "Iso only",
+        "Data": 18465.0,
+        "Signal": 417.68361065515353,
+        "Background": 5295.08341259692,
+        "S/B": 0.07888140339045288,
+        "Data/MC": 3.2322340338480204
+      },
+      {
+        "Step": "Mass + Iso",
+        "Data": 4626.0,
+        "Signal": 128.36973772597264,
+        "Background": 1401.556205795505,
+        "S/B": 0.09159085964241559,
+        "Data/MC": 3.0236757665225245
+      }
+    ],
+    "debug_summary": "An index-ordering issue is present: ordered opposite-flavour counts are asymmetric even when physical wrong-flavour categories survive.\nbaseline control preselection: ordered opposite-flavour counts are one-sided ((11,13)=1095059.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass-only selection: ordered opposite-flavour counts are one-sided ((11,13)=293068.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass + iso selection: ordered opposite-flavour counts are one-sided ((11,13)=233675.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering."
+  },
+  "mass_window": {
+    "variation_table": [
+      {
+        "variation": "68.0_114.0",
+        "mass_low": 68.0,
+        "mass_high": 114.0,
+        "method": "none",
+        "sigma_pb": 2248.6685871117793,
+        "sigma_shift_pb": 0.3335699378940262,
+        "extra_bkg": 0.0
+      },
+      {
+        "variation": "68.0_114.0",
+        "mass_low": 68.0,
+        "mass_high": 114.0,
+        "method": "wrong_flavour",
+        "sigma_pb": 2247.0130493229494,
+        "sigma_shift_pb": 0.4582335575078105,
+        "extra_bkg": 18104.546285425888
+      },
+      {
+        "variation": "68.0_114.0",
+        "mass_low": 68.0,
+        "mass_high": 114.0,
+        "method": "wrong_charge",
+        "sigma_pb": 2248.416147816304,
+        "sigma_shift_pb": 0.3625489958049002,
+        "extra_bkg": 2760.6128594729043
+      },
+      {
+        "variation": "68.0_114.0",
+        "mass_low": 68.0,
+        "mass_high": 114.0,
+        "method": "both_average",
+        "sigma_pb": 2247.7145985696266,
+        "sigma_shift_pb": 0.4103912766559006,
+        "extra_bkg": 10432.579572449396
+      },
+      {
+        "variation": "64.0_118.0",
+        "mass_low": 64.0,
+        "mass_high": 118.0,
+        "method": "none",
+        "sigma_pb": 2247.8897554807436,
+        "sigma_shift_pb": -0.4452616931416742,
+        "extra_bkg": 0.0
+      },
+      {
+        "variation": "64.0_118.0",
+        "mass_low": 64.0,
+        "mass_high": 118.0,
+        "method": "wrong_flavour",
+        "sigma_pb": 2245.9813693160186,
+        "sigma_shift_pb": -0.5734464494230451,
+        "extra_bkg": 21110.945341248662
+      },
+      {
+        "variation": "64.0_118.0",
+        "mass_low": 64.0,
+        "mass_high": 118.0,
+        "method": "wrong_charge",
+        "sigma_pb": 2247.5846639451815,
+        "sigma_shift_pb": -0.46893487531770006,
+        "extra_bkg": 3374.9829307985465
+      },
+      {
+        "variation": "64.0_118.0",
+        "mass_low": 64.0,
+        "mass_high": 118.0,
+        "method": "both_average",
+        "sigma_pb": 2246.7830166306003,
+        "sigma_shift_pb": -0.5211906623703726,
+        "extra_bkg": 12242.964136023604
+      },
+      {
+        "variation": "70.0_112.0",
+        "mass_low": 70.0,
+        "mass_high": 112.0,
+        "method": "none",
+        "sigma_pb": 2249.070542641613,
+        "sigma_shift_pb": 0.7355254677277117,
+        "extra_bkg": 0.0
+      },
+      {
+        "variation": "70.0_112.0",
+        "mass_low": 70.0,
+        "mass_high": 112.0,
+        "method": "wrong_flavour",
+        "sigma_pb": 2247.527369782337,
+        "sigma_shift_pb": 0.9725540168951738,
+        "extra_bkg": 16761.389801202095
+      },
+      {
+        "variation": "70.0_112.0",
+        "mass_low": 70.0,
+        "mass_high": 112.0,
+        "method": "wrong_charge",
+        "sigma_pb": 2248.837647250166,
+        "sigma_shift_pb": 0.7840484296666546,
+        "extra_bkg": 2529.6261630583313
+      },
+      {
+        "variation": "70.0_112.0",
+        "mass_low": 70.0,
+        "mass_high": 112.0,
+        "method": "both_average",
+        "sigma_pb": 2248.1825085162513,
+        "sigma_shift_pb": 0.8783012232806868,
+        "extra_bkg": 9645.507982130213
+      },
+      {
+        "variation": "62.0_120.0",
+        "mass_low": 62.0,
+        "mass_high": 120.0,
+        "method": "none",
+        "sigma_pb": 2247.5077010466316,
+        "sigma_shift_pb": -0.8273161272536527,
+        "extra_bkg": 0.0
+      },
+      {
+        "variation": "62.0_120.0",
+        "mass_low": 62.0,
+        "mass_high": 120.0,
+        "method": "wrong_flavour",
+        "sigma_pb": 2245.442932611995,
+        "sigma_shift_pb": -1.1118831534467972,
+        "extra_bkg": 22955.708629441804
+      },
+      {
+        "variation": "62.0_120.0",
+        "mass_low": 62.0,
+        "mass_high": 120.0,
+        "method": "wrong_charge",
+        "sigma_pb": 2247.1749250650423,
+        "sigma_shift_pb": -0.8786737554569299,
+        "extra_bkg": 3699.7410189452185
+      },
+      {
+        "variation": "62.0_120.0",
+        "mass_low": 62.0,
+        "mass_high": 120.0,
+        "method": "both_average",
+        "sigma_pb": 2246.308928838518,
+        "sigma_shift_pb": -0.9952784544525457,
+        "extra_bkg": 13327.724824193512
+      }
+    ],
+    "detailed_variations": [
+      {
+        "variation": "68.0_114.0",
+        "mass_window": [
+          68.0,
+          114.0
+        ],
+        "cut_point": {
+          "channel": "mu",
+          "cuts": {
+            "mass_window": [
+              68.0,
+              114.0
+            ],
+            "ptcone_max": 4.5,
+            "etcone_max": 9.25,
+            "require_both_iso": true
+          },
+          "signal_region_yields": {
+            "Data": 24660406.0,
+            "Signal": 24291594.967078514,
+            "Background": 69515.02441293203,
+            "S/B": 349.44380976955387,
+            "Data/MC": 1.0122858116322733
+          },
+          "ss_yields": {
+            "Data": 4175.0,
+            "Signal": 111.639142787387,
+            "Background": 1302.7479977397086,
+            "S/B": 0.0856951175369933,
+            "Data/MC": 2.9518085115254333
+          },
+          "stage_totals": {
+            "baseline": {
+              "data_counts": {
+                "ordered_11_13": 1095059.0,
+                "ordered_13_11": 0.0,
+                "ep_mum": 450597.0,
+                "mup_em": 460067.0,
+                "ee_ss": 387416.0,
+                "mumu_ss": 34029.0
+              },
+              "mc_counts": {
+                "ordered_11_13": 756632.6840792695,
+                "ordered_13_11": 0.0,
+                "ep_mum": 316974.3321790564,
+                "mup_em": 329344.67759227403,
+                "ee_ss": 26122.099358394193,
+                "mumu_ss": 5851.393368795236
+              },
+              "mc_samples_included": [
+                "Wmunu",
+                "Zmumu",
+                "Ztautau",
+                "m10_40_Zmumu",
+                "ttbar"
+              ]
+            },
+            "mass_only": {
+              "data_counts": {
+                "ordered_11_13": 265539.0,
+                "ordered_13_11": 0.0,
+                "ep_mum": 111789.0,
+                "mup_em": 113524.0,
+                "ee_ss": 234710.0,
+                "mumu_ss": 7814.0
+              },
+              "mc_counts": {
+                "ordered_11_13": 194791.2854945772,
+                "ordered_13_11": 0.0,
+                "ep_mum": 83888.64111157517,
+                "mup_em": 85727.46095926681,
+                "ee_ss": 7761.603447876185,
+                "mumu_ss": 1469.3197314694357
+              },
+              "mc_samples_included": [
+                "Wmunu",
+                "Zmumu",
+                "Ztautau",
+                "m10_40_Zmumu",
+                "ttbar"
+              ]
+            },
+            "mass_plus_iso": {
+              "data_counts": {
+                "ordered_11_13": 211918.0,
+                "ordered_13_11": 0.0,
+                "ep_mum": 94190.0,
+                "mup_em": 95728.0,
+                "ee_ss": 213261.0,
+                "mumu_ss": 4175.0
+              },
+              "mc_counts": {
+                "ordered_11_13": 168849.4662459668,
+                "ordered_13_11": 0.0,
+                "ep_mum": 76071.29192353031,
+                "mup_em": 77637.61550561791,
+                "ee_ss": 2995.9706719575765,
+                "mumu_ss": 1414.3871405270954
+              },
+              "mc_samples_included": [
+                "Wmunu",
+                "Zmumu",
+                "Ztautau",
+                "m10_40_Zmumu",
+                "ttbar"
+              ]
+            }
+          },
+          "regions_table": [
+            {
+              "region": "ep_mum",
+              "N_data": 94190.0,
+              "N_MC": 76071.29192353031,
+              "residual": 18118.708076469688,
+              "clipped_residual": 18118.708076469688
+            },
+            {
+              "region": "mup_em",
+              "N_data": 95728.0,
+              "N_MC": 77637.61550561791,
+              "residual": 18090.384494382088,
+              "clipped_residual": 18090.384494382088
+            },
+            {
+              "region": "ee_ss",
+              "N_data": 213261.0,
+              "N_MC": 2995.9706719575765,
+              "residual": 210265.02932804244,
+              "clipped_residual": 210265.02932804244
+            },
+            {
+              "region": "mumu_ss",
+              "N_data": 4175.0,
+              "N_MC": 1414.3871405270954,
+              "residual": 2760.6128594729043,
+              "clipped_residual": 2760.6128594729043
+            }
+          ],
+          "estimators_table": [
+            {
+              "method": "none",
+              "estimate_raw": 0.0,
+              "estimate_clipped": 0.0,
+              "description": "Baseline with no additional DD background"
+            },
+            {
+              "method": "wrong_flavour",
+              "estimate_raw": 18104.546285425888,
+              "estimate_clipped": 18104.546285425888,
+              "description": "Average wrong-flavour residual"
+            },
+            {
+              "method": "wrong_charge",
+              "estimate_raw": 2760.6128594729043,
+              "estimate_clipped": 2760.6128594729043,
+              "description": "Wrong-charge residual from mumu_ss"
+            },
+            {
+              "method": "both_average",
+              "estimate_raw": 10432.579572449396,
+              "estimate_clipped": 10432.579572449396,
+              "description": "Average of wrong_flavour and wrong_charge"
+            }
+          ],
+          "sigma_results_table": [
+            {
+              "method": "none",
+              "extra_bkg": 0.0,
+              "sigma_pb": 2248.6685871117793,
+              "sigma_shift_pb": 0.0,
+              "dsigma_stat_pb": 0.4550904395521353,
+              "dsigma_lumi_pb": 38.22736598090025,
+              "epsilon": 0.3573774294883988,
+              "N_selected": 24660406.0,
+              "N_bkg_total": 69529.97734049319,
+              "N_sig_data": 24590876.022659507,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "wrong_flavour",
+              "extra_bkg": 18104.546285425888,
+              "sigma_pb": 2247.0130493229494,
+              "sigma_shift_pb": -1.6555377888298608,
+              "dsigma_stat_pb": 0.4550904395521353,
+              "dsigma_lumi_pb": 38.199221838490146,
+              "epsilon": 0.3573774294883988,
+              "N_selected": 24660406.0,
+              "N_bkg_total": 87634.52362591907,
+              "N_sig_data": 24572771.476374082,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "wrong_charge",
+              "extra_bkg": 2760.6128594729043,
+              "sigma_pb": 2248.416147816304,
+              "sigma_shift_pb": -0.252439295475142,
+              "dsigma_stat_pb": 0.4550904395521353,
+              "dsigma_lumi_pb": 38.223074512877176,
+              "epsilon": 0.3573774294883988,
+              "N_selected": 24660406.0,
+              "N_bkg_total": 72290.5901999661,
+              "N_sig_data": 24588115.409800034,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "both_average",
+              "extra_bkg": 10432.579572449396,
+              "sigma_pb": 2247.7145985696266,
+              "sigma_shift_pb": -0.9539885421527288,
+              "dsigma_stat_pb": 0.4550904395521353,
+              "dsigma_lumi_pb": 38.211148175683654,
+              "epsilon": 0.3573774294883988,
+              "N_selected": 24660406.0,
+              "N_bkg_total": 79962.55691294259,
+              "N_sig_data": 24580443.443087056,
+              "sigma_valid": true,
+              "sigma_error": ""
+            }
+          ],
+          "comparison_sigma_if_applied": [
+            {
+              "method": "wrong_flavour",
+              "extra_bkg": 18104.546285425888,
+              "sigma_pb": 2247.0130493229494,
+              "sigma_shift_pb": -1.6555377888298608,
+              "dsigma_stat_pb": 0.4550904395521353,
+              "dsigma_lumi_pb": 38.199221838490146,
+              "epsilon": 0.3573774294883988,
+              "N_selected": 24660406.0,
+              "N_bkg_total": 87634.52362591907,
+              "N_sig_data": 24572771.476374082,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "wrong_charge",
+              "extra_bkg": 2760.6128594729043,
+              "sigma_pb": 2248.416147816304,
+              "sigma_shift_pb": -0.252439295475142,
+              "dsigma_stat_pb": 0.4550904395521353,
+              "dsigma_lumi_pb": 38.223074512877176,
+              "epsilon": 0.3573774294883988,
+              "N_selected": 24660406.0,
+              "N_bkg_total": 72290.5901999661,
+              "N_sig_data": 24588115.409800034,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "both_average",
+              "extra_bkg": 10432.579572449396,
+              "sigma_pb": 2247.7145985696266,
+              "sigma_shift_pb": -0.9539885421527288,
+              "dsigma_stat_pb": 0.4550904395521353,
+              "dsigma_lumi_pb": 38.211148175683654,
+              "epsilon": 0.3573774294883988,
+              "N_selected": 24660406.0,
+              "N_bkg_total": 79962.55691294259,
+              "N_sig_data": 24580443.443087056,
+              "sigma_valid": true,
+              "sigma_error": ""
+            }
+          ],
+          "os_cutflow": null,
+          "ss_cutflow": null,
+          "debug_summary": "An index-ordering issue is present: ordered opposite-flavour counts are asymmetric even when physical wrong-flavour categories survive.\nbaseline control preselection: ordered opposite-flavour counts are one-sided ((11,13)=1095059.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass-only selection: ordered opposite-flavour counts are one-sided ((11,13)=265539.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass + iso selection: ordered opposite-flavour counts are one-sided ((11,13)=211918.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering."
+        }
+      },
+      {
+        "variation": "64.0_118.0",
+        "mass_window": [
+          64.0,
+          118.0
+        ],
+        "cut_point": {
+          "channel": "mu",
+          "cuts": {
+            "mass_window": [
+              64.0,
+              118.0
+            ],
+            "ptcone_max": 4.5,
+            "etcone_max": 9.25,
+            "require_both_iso": true
+          },
+          "signal_region_yields": {
+            "Data": 24951704.0,
+            "Signal": 24572479.48371901,
+            "Background": 85083.38019069446,
+            "S/B": 288.80469286299575,
+            "Data/MC": 1.0119290433411332
+          },
+          "ss_yields": {
+            "Data": 5085.0,
+            "Signal": 142.47862738922493,
+            "Background": 1567.5384418122285,
+            "S/B": 0.09089322697853944,
+            "Data/MC": 2.973654527539074
+          },
+          "stage_totals": {
+            "baseline": {
+              "data_counts": {
+                "ordered_11_13": 1095059.0,
+                "ordered_13_11": 0.0,
+                "ep_mum": 450597.0,
+                "mup_em": 460067.0,
+                "ee_ss": 387416.0,
+                "mumu_ss": 34029.0
+              },
+              "mc_counts": {
+                "ordered_11_13": 756632.6840792695,
+                "ordered_13_11": 0.0,
+                "ep_mum": 316974.3321790564,
+                "mup_em": 329344.67759227403,
+                "ee_ss": 26122.099358394193,
+                "mumu_ss": 5851.393368795236
+              },
+              "mc_samples_included": [
+                "Wmunu",
+                "Zmumu",
+                "Ztautau",
+                "m10_40_Zmumu",
+                "ttbar"
+              ]
+            },
+            "mass_only": {
+              "data_counts": {
+                "ordered_11_13": 322110.0,
+                "ordered_13_11": 0.0,
+                "ep_mum": 135534.0,
+                "mup_em": 137974.0,
+                "ee_ss": 245528.0,
+                "mumu_ss": 9469.0
+              },
+              "mc_counts": {
+                "ordered_11_13": 237954.59346253102,
+                "ordered_13_11": 0.0,
+                "ep_mum": 102543.77065484444,
+                "mup_em": 104819.78753283578,
+                "ee_ss": 9350.18048124402,
+                "mumu_ss": 1772.0988155218508
+              },
+              "mc_samples_included": [
+                "Wmunu",
+                "Zmumu",
+                "Ztautau",
+                "m10_40_Zmumu",
+                "ttbar"
+              ]
+            },
+            "mass_plus_iso": {
+              "data_counts": {
+                "ordered_11_13": 256708.0,
+                "ordered_13_11": 0.0,
+                "ep_mum": 114072.0,
+                "mup_em": 116221.0,
+                "ee_ss": 219922.0,
+                "mumu_ss": 5085.0
+              },
+              "mc_counts": {
+                "ordered_11_13": 206433.74185308735,
+                "ordered_13_11": 0.0,
+                "ep_mum": 93119.62415388355,
+                "mup_em": 94951.48516361913,
+                "ee_ss": 3605.568744976901,
+                "mumu_ss": 1710.0170692014533
+              },
+              "mc_samples_included": [
+                "Wmunu",
+                "Zmumu",
+                "Ztautau",
+                "m10_40_Zmumu",
+                "ttbar"
+              ]
+            }
+          },
+          "regions_table": [
+            {
+              "region": "ep_mum",
+              "N_data": 114072.0,
+              "N_MC": 93119.62415388355,
+              "residual": 20952.375846116454,
+              "clipped_residual": 20952.375846116454
+            },
+            {
+              "region": "mup_em",
+              "N_data": 116221.0,
+              "N_MC": 94951.48516361913,
+              "residual": 21269.51483638087,
+              "clipped_residual": 21269.51483638087
+            },
+            {
+              "region": "ee_ss",
+              "N_data": 219922.0,
+              "N_MC": 3605.568744976901,
+              "residual": 216316.4312550231,
+              "clipped_residual": 216316.4312550231
+            },
+            {
+              "region": "mumu_ss",
+              "N_data": 5085.0,
+              "N_MC": 1710.0170692014533,
+              "residual": 3374.9829307985465,
+              "clipped_residual": 3374.9829307985465
+            }
+          ],
+          "estimators_table": [
+            {
+              "method": "none",
+              "estimate_raw": 0.0,
+              "estimate_clipped": 0.0,
+              "description": "Baseline with no additional DD background"
+            },
+            {
+              "method": "wrong_flavour",
+              "estimate_raw": 21110.945341248662,
+              "estimate_clipped": 21110.945341248662,
+              "description": "Average wrong-flavour residual"
+            },
+            {
+              "method": "wrong_charge",
+              "estimate_raw": 3374.9829307985465,
+              "estimate_clipped": 3374.9829307985465,
+              "description": "Wrong-charge residual from mumu_ss"
+            },
+            {
+              "method": "both_average",
+              "estimate_raw": 12242.964136023604,
+              "estimate_clipped": 12242.964136023604,
+              "description": "Average of wrong_flavour and wrong_charge"
+            }
+          ],
+          "sigma_results_table": [
+            {
+              "method": "none",
+              "extra_bkg": 0.0,
+              "sigma_pb": 2247.8897554807436,
+              "sigma_shift_pb": 0.0,
+              "dsigma_stat_pb": 0.45294411148703506,
+              "dsigma_lumi_pb": 38.214125843172646,
+              "epsilon": 0.3615097338803577,
+              "N_selected": 24951704.0,
+              "N_bkg_total": 85102.76473548808,
+              "N_sig_data": 24866601.235264514,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "wrong_flavour",
+              "extra_bkg": 21110.945341248662,
+              "sigma_pb": 2245.9813693160186,
+              "sigma_shift_pb": -1.908386164725016,
+              "dsigma_stat_pb": 0.45294411148703506,
+              "dsigma_lumi_pb": 38.18168327837232,
+              "epsilon": 0.3615097338803577,
+              "N_selected": 24951704.0,
+              "N_bkg_total": 106213.71007673674,
+              "N_sig_data": 24845490.28992326,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "wrong_charge",
+              "extra_bkg": 3374.9829307985465,
+              "sigma_pb": 2247.5846639451815,
+              "sigma_shift_pb": -0.3050915355620418,
+              "dsigma_stat_pb": 0.45294411148703506,
+              "dsigma_lumi_pb": 38.20893928706809,
+              "epsilon": 0.3615097338803577,
+              "N_selected": 24951704.0,
+              "N_bkg_total": 88477.74766628662,
+              "N_sig_data": 24863226.25233371,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "both_average",
+              "extra_bkg": 12242.964136023604,
+              "sigma_pb": 2246.7830166306003,
+              "sigma_shift_pb": -1.1067388501433015,
+              "dsigma_stat_pb": 0.45294411148703506,
+              "dsigma_lumi_pb": 38.195311282720205,
+              "epsilon": 0.3615097338803577,
+              "N_selected": 24951704.0,
+              "N_bkg_total": 97345.72887151167,
+              "N_sig_data": 24854358.271128487,
+              "sigma_valid": true,
+              "sigma_error": ""
+            }
+          ],
+          "comparison_sigma_if_applied": [
+            {
+              "method": "wrong_flavour",
+              "extra_bkg": 21110.945341248662,
+              "sigma_pb": 2245.9813693160186,
+              "sigma_shift_pb": -1.908386164725016,
+              "dsigma_stat_pb": 0.45294411148703506,
+              "dsigma_lumi_pb": 38.18168327837232,
+              "epsilon": 0.3615097338803577,
+              "N_selected": 24951704.0,
+              "N_bkg_total": 106213.71007673674,
+              "N_sig_data": 24845490.28992326,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "wrong_charge",
+              "extra_bkg": 3374.9829307985465,
+              "sigma_pb": 2247.5846639451815,
+              "sigma_shift_pb": -0.3050915355620418,
+              "dsigma_stat_pb": 0.45294411148703506,
+              "dsigma_lumi_pb": 38.20893928706809,
+              "epsilon": 0.3615097338803577,
+              "N_selected": 24951704.0,
+              "N_bkg_total": 88477.74766628662,
+              "N_sig_data": 24863226.25233371,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "both_average",
+              "extra_bkg": 12242.964136023604,
+              "sigma_pb": 2246.7830166306003,
+              "sigma_shift_pb": -1.1067388501433015,
+              "dsigma_stat_pb": 0.45294411148703506,
+              "dsigma_lumi_pb": 38.195311282720205,
+              "epsilon": 0.3615097338803577,
+              "N_selected": 24951704.0,
+              "N_bkg_total": 97345.72887151167,
+              "N_sig_data": 24854358.271128487,
+              "sigma_valid": true,
+              "sigma_error": ""
+            }
+          ],
+          "os_cutflow": null,
+          "ss_cutflow": null,
+          "debug_summary": "An index-ordering issue is present: ordered opposite-flavour counts are asymmetric even when physical wrong-flavour categories survive.\nbaseline control preselection: ordered opposite-flavour counts are one-sided ((11,13)=1095059.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass-only selection: ordered opposite-flavour counts are one-sided ((11,13)=322110.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass + iso selection: ordered opposite-flavour counts are one-sided ((11,13)=256708.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering."
+        }
+      },
+      {
+        "variation": "70.0_112.0",
+        "mass_window": [
+          70.0,
+          112.0
+        ],
+        "cut_point": {
+          "channel": "mu",
+          "cuts": {
+            "mass_window": [
+              70.0,
+              112.0
+            ],
+            "ptcone_max": 4.5,
+            "etcone_max": 9.25,
+            "require_both_iso": true
+          },
+          "signal_region_yields": {
+            "Data": 24490847.0,
+            "Signal": 24126974.728718556,
+            "Background": 62238.603083461705,
+            "S/B": 387.65289600674976,
+            "Data/MC": 1.0124697593121565
+          },
+          "ss_yields": {
+            "Data": 3791.0,
+            "Signal": 102.22898831323806,
+            "Background": 1159.144848628431,
+            "S/B": 0.0881934543678484,
+            "Data/MC": 3.005453172543733
+          },
+          "stage_totals": {
+            "baseline": {
+              "data_counts": {
+                "ordered_11_13": 1095059.0,
+                "ordered_13_11": 0.0,
+                "ep_mum": 450597.0,
+                "mup_em": 460067.0,
+                "ee_ss": 387416.0,
+                "mumu_ss": 34029.0
+              },
+              "mc_counts": {
+                "ordered_11_13": 756632.6840792695,
+                "ordered_13_11": 0.0,
+                "ep_mum": 316974.3321790564,
+                "mup_em": 329344.67759227403,
+                "ee_ss": 26122.099358394193,
+                "mumu_ss": 5851.393368795236
+              },
+              "mc_samples_included": [
+                "Wmunu",
+                "Zmumu",
+                "Ztautau",
+                "m10_40_Zmumu",
+                "ttbar"
+              ]
+            },
+            "mass_only": {
+              "data_counts": {
+                "ordered_11_13": 238858.0,
+                "ordered_13_11": 0.0,
+                "ep_mum": 100558.0,
+                "mup_em": 102161.0,
+                "ee_ss": 229076.0,
+                "mumu_ss": 7076.0
+              },
+              "mc_counts": {
+                "ordered_11_13": 174357.8064605579,
+                "ordered_13_11": 0.0,
+                "ep_mum": 75041.68107794537,
+                "mup_em": 76720.26420691017,
+                "ee_ss": 7033.550435225507,
+                "mumu_ss": 1312.719744459876
+              },
+              "mc_samples_included": [
+                "Wmunu",
+                "Zmumu",
+                "Ztautau",
+                "m10_40_Zmumu",
+                "ttbar"
+              ]
+            },
+            "mass_plus_iso": {
+              "data_counts": {
+                "ordered_11_13": 190857.0,
+                "ordered_13_11": 0.0,
+                "ep_mum": 84815.0,
+                "mup_em": 86202.0,
+                "ee_ss": 209635.0,
+                "mumu_ss": 3791.0
+              },
+              "mc_counts": {
+                "ordered_11_13": 151051.1798627995,
+                "ordered_13_11": 0.0,
+                "ep_mum": 68016.52325823992,
+                "mup_em": 69477.69713935589,
+                "ee_ss": 2703.2429978830055,
+                "mumu_ss": 1261.373836941669
+              },
+              "mc_samples_included": [
+                "Wmunu",
+                "Zmumu",
+                "Ztautau",
+                "m10_40_Zmumu",
+                "ttbar"
+              ]
+            }
+          },
+          "regions_table": [
+            {
+              "region": "ep_mum",
+              "N_data": 84815.0,
+              "N_MC": 68016.52325823992,
+              "residual": 16798.47674176008,
+              "clipped_residual": 16798.47674176008
+            },
+            {
+              "region": "mup_em",
+              "N_data": 86202.0,
+              "N_MC": 69477.69713935589,
+              "residual": 16724.302860644108,
+              "clipped_residual": 16724.302860644108
+            },
+            {
+              "region": "ee_ss",
+              "N_data": 209635.0,
+              "N_MC": 2703.2429978830055,
+              "residual": 206931.757002117,
+              "clipped_residual": 206931.757002117
+            },
+            {
+              "region": "mumu_ss",
+              "N_data": 3791.0,
+              "N_MC": 1261.373836941669,
+              "residual": 2529.6261630583313,
+              "clipped_residual": 2529.6261630583313
+            }
+          ],
+          "estimators_table": [
+            {
+              "method": "none",
+              "estimate_raw": 0.0,
+              "estimate_clipped": 0.0,
+              "description": "Baseline with no additional DD background"
+            },
+            {
+              "method": "wrong_flavour",
+              "estimate_raw": 16761.389801202095,
+              "estimate_clipped": 16761.389801202095,
+              "description": "Average wrong-flavour residual"
+            },
+            {
+              "method": "wrong_charge",
+              "estimate_raw": 2529.6261630583313,
+              "estimate_clipped": 2529.6261630583313,
+              "description": "Wrong-charge residual from mumu_ss"
+            },
+            {
+              "method": "both_average",
+              "estimate_raw": 9645.507982130213,
+              "estimate_clipped": 9645.507982130213,
+              "description": "Average of wrong_flavour and wrong_charge"
+            }
+          ],
+          "sigma_results_table": [
+            {
+              "method": "none",
+              "extra_bkg": 0.0,
+              "sigma_pb": 2249.070542641613,
+              "sigma_shift_pb": 0.0,
+              "dsigma_stat_pb": 0.45645566433343093,
+              "dsigma_lumi_pb": 38.23419922490742,
+              "epsilon": 0.35495559253004744,
+              "N_selected": 24490847.0,
+              "N_bkg_total": 62249.88657999158,
+              "N_sig_data": 24428597.11342001,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "wrong_flavour",
+              "extra_bkg": 16761.389801202095,
+              "sigma_pb": 2247.527369782337,
+              "sigma_shift_pb": -1.5431728592761829,
+              "dsigma_stat_pb": 0.45645566433343093,
+              "dsigma_lumi_pb": 38.207965286299725,
+              "epsilon": 0.35495559253004744,
+              "N_selected": 24490847.0,
+              "N_bkg_total": 79011.27638119367,
+              "N_sig_data": 24411835.723618805,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "wrong_charge",
+              "extra_bkg": 2529.6261630583313,
+              "sigma_pb": 2248.837647250166,
+              "sigma_shift_pb": -0.23289539144707305,
+              "dsigma_stat_pb": 0.45645566433343093,
+              "dsigma_lumi_pb": 38.230240003252824,
+              "epsilon": 0.35495559253004744,
+              "N_selected": 24490847.0,
+              "N_bkg_total": 64779.51274304991,
+              "N_sig_data": 24426067.48725695,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "both_average",
+              "extra_bkg": 9645.507982130213,
+              "sigma_pb": 2248.1825085162513,
+              "sigma_shift_pb": -0.888034125361628,
+              "dsigma_stat_pb": 0.45645566433343093,
+              "dsigma_lumi_pb": 38.21910264477628,
+              "epsilon": 0.35495559253004744,
+              "N_selected": 24490847.0,
+              "N_bkg_total": 71895.3945621218,
+              "N_sig_data": 24418951.60543788,
+              "sigma_valid": true,
+              "sigma_error": ""
+            }
+          ],
+          "comparison_sigma_if_applied": [
+            {
+              "method": "wrong_flavour",
+              "extra_bkg": 16761.389801202095,
+              "sigma_pb": 2247.527369782337,
+              "sigma_shift_pb": -1.5431728592761829,
+              "dsigma_stat_pb": 0.45645566433343093,
+              "dsigma_lumi_pb": 38.207965286299725,
+              "epsilon": 0.35495559253004744,
+              "N_selected": 24490847.0,
+              "N_bkg_total": 79011.27638119367,
+              "N_sig_data": 24411835.723618805,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "wrong_charge",
+              "extra_bkg": 2529.6261630583313,
+              "sigma_pb": 2248.837647250166,
+              "sigma_shift_pb": -0.23289539144707305,
+              "dsigma_stat_pb": 0.45645566433343093,
+              "dsigma_lumi_pb": 38.230240003252824,
+              "epsilon": 0.35495559253004744,
+              "N_selected": 24490847.0,
+              "N_bkg_total": 64779.51274304991,
+              "N_sig_data": 24426067.48725695,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "both_average",
+              "extra_bkg": 9645.507982130213,
+              "sigma_pb": 2248.1825085162513,
+              "sigma_shift_pb": -0.888034125361628,
+              "dsigma_stat_pb": 0.45645566433343093,
+              "dsigma_lumi_pb": 38.21910264477628,
+              "epsilon": 0.35495559253004744,
+              "N_selected": 24490847.0,
+              "N_bkg_total": 71895.3945621218,
+              "N_sig_data": 24418951.60543788,
+              "sigma_valid": true,
+              "sigma_error": ""
+            }
+          ],
+          "os_cutflow": null,
+          "ss_cutflow": null,
+          "debug_summary": "An index-ordering issue is present: ordered opposite-flavour counts are asymmetric even when physical wrong-flavour categories survive.\nbaseline control preselection: ordered opposite-flavour counts are one-sided ((11,13)=1095059.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass-only selection: ordered opposite-flavour counts are one-sided ((11,13)=238858.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass + iso selection: ordered opposite-flavour counts are one-sided ((11,13)=190857.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering."
+        }
+      },
+      {
+        "variation": "62.0_120.0",
+        "mass_window": [
+          62.0,
+          120.0
+        ],
+        "cut_point": {
+          "channel": "mu",
+          "cuts": {
+            "mass_window": [
+              62.0,
+              120.0
+            ],
+            "ptcone_max": 4.5,
+            "etcone_max": 9.25,
+            "require_both_iso": true
+          },
+          "signal_region_yields": {
+            "Data": 25080433.0,
+            "Signal": 24696018.368611097,
+            "Background": 93042.3210698778,
+            "S/B": 265.427797636987,
+            "Data/MC": 1.011754068214465
+          },
+          "ss_yields": {
+            "Data": 5545.0,
+            "Signal": 171.80011428331443,
+            "Background": 1673.4588667714675,
+            "S/B": 0.10266168932778194,
+            "Data/MC": 3.004998245195036
+          },
+          "stage_totals": {
+            "baseline": {
+              "data_counts": {
+                "ordered_11_13": 1095059.0,
+                "ordered_13_11": 0.0,
+                "ep_mum": 450597.0,
+                "mup_em": 460067.0,
+                "ee_ss": 387416.0,
+                "mumu_ss": 34029.0
+              },
+              "mc_counts": {
+                "ordered_11_13": 756632.6840792695,
+                "ordered_13_11": 0.0,
+                "ep_mum": 316974.3321790564,
+                "mup_em": 329344.67759227403,
+                "ee_ss": 26122.099358394193,
+                "mumu_ss": 5851.393368795236
+              },
+              "mc_samples_included": [
+                "Wmunu",
+                "Zmumu",
+                "Ztautau",
+                "m10_40_Zmumu",
+                "ttbar"
+              ]
+            },
+            "mass_only": {
+              "data_counts": {
+                "ordered_11_13": 351936.0,
+                "ordered_13_11": 0.0,
+                "ep_mum": 148202.0,
+                "mup_em": 150711.0,
+                "ee_ss": 251101.0,
+                "mumu_ss": 10343.0
+              },
+              "mc_counts": {
+                "ordered_11_13": 259954.05148919384,
+                "ordered_13_11": 0.0,
+                "ep_mum": 112269.91883282068,
+                "mup_em": 114443.2142226707,
+                "ee_ss": 10164.113766602215,
+                "mumu_ss": 1908.9719821695076
+              },
+              "mc_samples_included": [
+                "Wmunu",
+                "Zmumu",
+                "Ztautau",
+                "m10_40_Zmumu",
+                "ttbar"
+              ]
+            },
+            "mass_plus_iso": {
+              "data_counts": {
+                "ordered_11_13": 280216.0,
+                "ordered_13_11": 0.0,
+                "ep_mum": 124600.0,
+                "mup_em": 126804.0,
+                "ee_ss": 223278.0,
+                "mumu_ss": 5545.0
+              },
+              "mc_counts": {
+                "ordered_11_13": 225392.93112384572,
+                "ordered_13_11": 0.0,
+                "ep_mum": 101921.3247985665,
+                "mup_em": 103571.2579425499,
+                "ee_ss": 3942.5873389704034,
+                "mumu_ss": 1845.2589810547818
+              },
+              "mc_samples_included": [
+                "Wmunu",
+                "Zmumu",
+                "Ztautau",
+                "m10_40_Zmumu",
+                "ttbar"
+              ]
+            }
+          },
+          "regions_table": [
+            {
+              "region": "ep_mum",
+              "N_data": 124600.0,
+              "N_MC": 101921.3247985665,
+              "residual": 22678.675201433507,
+              "clipped_residual": 22678.675201433507
+            },
+            {
+              "region": "mup_em",
+              "N_data": 126804.0,
+              "N_MC": 103571.2579425499,
+              "residual": 23232.7420574501,
+              "clipped_residual": 23232.7420574501
+            },
+            {
+              "region": "ee_ss",
+              "N_data": 223278.0,
+              "N_MC": 3942.5873389704034,
+              "residual": 219335.4126610296,
+              "clipped_residual": 219335.4126610296
+            },
+            {
+              "region": "mumu_ss",
+              "N_data": 5545.0,
+              "N_MC": 1845.2589810547818,
+              "residual": 3699.7410189452185,
+              "clipped_residual": 3699.7410189452185
+            }
+          ],
+          "estimators_table": [
+            {
+              "method": "none",
+              "estimate_raw": 0.0,
+              "estimate_clipped": 0.0,
+              "description": "Baseline with no additional DD background"
+            },
+            {
+              "method": "wrong_flavour",
+              "estimate_raw": 22955.708629441804,
+              "estimate_clipped": 22955.708629441804,
+              "description": "Average wrong-flavour residual"
+            },
+            {
+              "method": "wrong_charge",
+              "estimate_raw": 3699.7410189452185,
+              "estimate_clipped": 3699.7410189452185,
+              "description": "Wrong-charge residual from mumu_ss"
+            },
+            {
+              "method": "both_average",
+              "estimate_raw": 13327.724824193512,
+              "estimate_clipped": 13327.724824193512,
+              "description": "Average of wrong_flavour and wrong_charge"
+            }
+          ],
+          "sigma_results_table": [
+            {
+              "method": "none",
+              "extra_bkg": 0.0,
+              "sigma_pb": 2247.5077010466316,
+              "sigma_shift_pb": 0.0,
+              "dsigma_stat_pb": 0.45205369110752075,
+              "dsigma_lumi_pb": 38.20763091779274,
+              "epsilon": 0.3633272109032317,
+              "N_selected": 25080433.0,
+              "N_bkg_total": 93063.44215290506,
+              "N_sig_data": 24987369.557847094,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "wrong_flavour",
+              "extra_bkg": 22955.708629441804,
+              "sigma_pb": 2245.442932611995,
+              "sigma_shift_pb": -2.0647684346367896,
+              "dsigma_stat_pb": 0.45205369110752075,
+              "dsigma_lumi_pb": 38.17252985440391,
+              "epsilon": 0.3633272109032317,
+              "N_selected": 25080433.0,
+              "N_bkg_total": 116019.15078234687,
+              "N_sig_data": 24964413.849217653,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "wrong_charge",
+              "extra_bkg": 3699.7410189452185,
+              "sigma_pb": 2247.1749250650423,
+              "sigma_shift_pb": -0.3327759815892932,
+              "dsigma_stat_pb": 0.45205369110752075,
+              "dsigma_lumi_pb": 38.20197372610572,
+              "epsilon": 0.3633272109032317,
+              "N_selected": 25080433.0,
+              "N_bkg_total": 96763.18317185028,
+              "N_sig_data": 24983669.81682815,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "both_average",
+              "extra_bkg": 13327.724824193512,
+              "sigma_pb": 2246.308928838518,
+              "sigma_shift_pb": -1.1987722081134962,
+              "dsigma_stat_pb": 0.45205369110752075,
+              "dsigma_lumi_pb": 38.18725179025481,
+              "epsilon": 0.3633272109032317,
+              "N_selected": 25080433.0,
+              "N_bkg_total": 106391.16697709858,
+              "N_sig_data": 24974041.8330229,
+              "sigma_valid": true,
+              "sigma_error": ""
+            }
+          ],
+          "comparison_sigma_if_applied": [
+            {
+              "method": "wrong_flavour",
+              "extra_bkg": 22955.708629441804,
+              "sigma_pb": 2245.442932611995,
+              "sigma_shift_pb": -2.0647684346367896,
+              "dsigma_stat_pb": 0.45205369110752075,
+              "dsigma_lumi_pb": 38.17252985440391,
+              "epsilon": 0.3633272109032317,
+              "N_selected": 25080433.0,
+              "N_bkg_total": 116019.15078234687,
+              "N_sig_data": 24964413.849217653,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "wrong_charge",
+              "extra_bkg": 3699.7410189452185,
+              "sigma_pb": 2247.1749250650423,
+              "sigma_shift_pb": -0.3327759815892932,
+              "dsigma_stat_pb": 0.45205369110752075,
+              "dsigma_lumi_pb": 38.20197372610572,
+              "epsilon": 0.3633272109032317,
+              "N_selected": 25080433.0,
+              "N_bkg_total": 96763.18317185028,
+              "N_sig_data": 24983669.81682815,
+              "sigma_valid": true,
+              "sigma_error": ""
+            },
+            {
+              "method": "both_average",
+              "extra_bkg": 13327.724824193512,
+              "sigma_pb": 2246.308928838518,
+              "sigma_shift_pb": -1.1987722081134962,
+              "dsigma_stat_pb": 0.45205369110752075,
+              "dsigma_lumi_pb": 38.18725179025481,
+              "epsilon": 0.3633272109032317,
+              "N_selected": 25080433.0,
+              "N_bkg_total": 106391.16697709858,
+              "N_sig_data": 24974041.8330229,
+              "sigma_valid": true,
+              "sigma_error": ""
+            }
+          ],
+          "os_cutflow": null,
+          "ss_cutflow": null,
+          "debug_summary": "An index-ordering issue is present: ordered opposite-flavour counts are asymmetric even when physical wrong-flavour categories survive.\nbaseline control preselection: ordered opposite-flavour counts are one-sided ((11,13)=1095059.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass-only selection: ordered opposite-flavour counts are one-sided ((11,13)=351936.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass + iso selection: ordered opposite-flavour counts are one-sided ((11,13)=280216.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering."
+        }
+      }
+    ]
+  },
+  "isolation_dependence": {
+    "scan_mode": "local_box",
+    "summary_by_method": [
+      {
+        "method": "none",
+        "sigma_nominal_pb": 2248.3350171738853,
+        "dsigma_isolation_pb": 13.726236880230317,
+        "max_fractional_shift": 0.006105067427844423,
+        "sigma_min_pb": 2234.608780293655,
+        "sigma_max_pb": 2257.120647278062,
+        "max_shift_ptcone": 2.5,
+        "max_shift_etcone": 7.25,
+        "scan_mode": "local_box",
+        "n_scan_points": 25
+      },
+      {
+        "method": "wrong_flavour",
+        "sigma_nominal_pb": 2246.5548157654416,
+        "dsigma_isolation_pb": 13.438425383021695,
+        "max_fractional_shift": 0.005981792782760558,
+        "sigma_min_pb": 2233.11639038242,
+        "sigma_max_pb": 2255.0711319325264,
+        "max_shift_ptcone": 2.5,
+        "max_shift_etcone": 7.25,
+        "scan_mode": "local_box",
+        "n_scan_points": 25
+      },
+      {
+        "method": "wrong_charge",
+        "sigma_nominal_pb": 2248.0535988204992,
+        "dsigma_isolation_pb": 13.608259470349822,
+        "max_fractional_shift": 0.006053351876258536,
+        "sigma_min_pb": 2234.4453393501494,
+        "sigma_max_pb": 2256.7293258095165,
+        "max_shift_ptcone": 2.5,
+        "max_shift_etcone": 7.25,
+        "scan_mode": "local_box",
+        "n_scan_points": 25
+      },
+      {
+        "method": "both_average",
+        "sigma_nominal_pb": 2247.3042072929707,
+        "dsigma_isolation_pb": 13.523342426686213,
+        "max_fractional_shift": 0.006017584260644441,
+        "sigma_min_pb": 2233.7808648662844,
+        "sigma_max_pb": 2255.9002288710217,
+        "max_shift_ptcone": 2.5,
+        "max_shift_etcone": 7.25,
+        "scan_mode": "local_box",
+        "n_scan_points": 25
+      }
+    ],
+    "notes": [
+      "dsigma_isolation_pb is the maximum absolute sigma shift relative to the nominal FIXED_ISO point over the configured diagnostic scan region.",
+      "The isolation scan is used to quantify residual dependence, not to select an optimal cut."
+    ]
+  },
+  "isolation_systematic": {
+    "scan_mode": "local_box",
+    "summary_by_method": [
+      {
+        "method": "none",
+        "sigma_nominal_pb": 2248.3350171738853,
+        "dsigma_isolation_pb": 13.726236880230317,
+        "max_fractional_shift": 0.006105067427844423,
+        "sigma_min_pb": 2234.608780293655,
+        "sigma_max_pb": 2257.120647278062,
+        "max_shift_ptcone": 2.5,
+        "max_shift_etcone": 7.25,
+        "scan_mode": "local_box",
+        "n_scan_points": 25
+      },
+      {
+        "method": "wrong_flavour",
+        "sigma_nominal_pb": 2246.5548157654416,
+        "dsigma_isolation_pb": 13.438425383021695,
+        "max_fractional_shift": 0.005981792782760558,
+        "sigma_min_pb": 2233.11639038242,
+        "sigma_max_pb": 2255.0711319325264,
+        "max_shift_ptcone": 2.5,
+        "max_shift_etcone": 7.25,
+        "scan_mode": "local_box",
+        "n_scan_points": 25
+      },
+      {
+        "method": "wrong_charge",
+        "sigma_nominal_pb": 2248.0535988204992,
+        "dsigma_isolation_pb": 13.608259470349822,
+        "max_fractional_shift": 0.006053351876258536,
+        "sigma_min_pb": 2234.4453393501494,
+        "sigma_max_pb": 2256.7293258095165,
+        "max_shift_ptcone": 2.5,
+        "max_shift_etcone": 7.25,
+        "scan_mode": "local_box",
+        "n_scan_points": 25
+      },
+      {
+        "method": "both_average",
+        "sigma_nominal_pb": 2247.3042072929707,
+        "dsigma_isolation_pb": 13.523342426686213,
+        "max_fractional_shift": 0.006017584260644441,
+        "sigma_min_pb": 2233.7808648662844,
+        "sigma_max_pb": 2255.9002288710217,
+        "max_shift_ptcone": 2.5,
+        "max_shift_etcone": 7.25,
+        "scan_mode": "local_box",
+        "n_scan_points": 25
+      }
+    ],
+    "notes": [
+      "dsigma_isolation_pb is the maximum absolute sigma shift relative to the nominal FIXED_ISO point over the configured diagnostic scan region.",
+      "The isolation scan is used to quantify residual dependence, not to select an optimal cut."
+    ]
+  },
+  "uncertainty_summary_by_method": [
+    {
+      "method": "none",
+      "sigma_pb": 2248.3350171738853,
+      "dsigma_stat_pb": 0.4539482001930883,
+      "dsigma_lumi_pb": 38.22169529195605,
+      "dsigma_mass_window_pb": 0.8273161272536527,
+      "dsigma_isolation_pb": 13.726236880230317
+    },
+    {
+      "method": "wrong_flavour",
+      "sigma_pb": 2246.5548157654416,
+      "dsigma_stat_pb": 0.4539482001930883,
+      "dsigma_lumi_pb": 38.19143186801251,
+      "dsigma_mass_window_pb": 1.1118831534467972,
+      "dsigma_isolation_pb": 13.438425383021695
+    },
+    {
+      "method": "wrong_charge",
+      "sigma_pb": 2248.0535988204992,
+      "dsigma_stat_pb": 0.4539482001930883,
+      "dsigma_lumi_pb": 38.21691117994849,
+      "dsigma_mass_window_pb": 0.8786737554569299,
+      "dsigma_isolation_pb": 13.608259470349822
+    },
+    {
+      "method": "both_average",
+      "sigma_pb": 2247.3042072929707,
+      "dsigma_stat_pb": 0.4539482001930883,
+      "dsigma_lumi_pb": 38.204171523980506,
+      "dsigma_mass_window_pb": 0.9952784544525457,
+      "dsigma_isolation_pb": 13.523342426686213
+    }
+  ],
+  "notes": [
+    "No order-mode systematic is defined.",
+    "Isolation dependence is reported relative to the fixed nominal working point.",
+    "A plateau is not required for the scan to be usable as a dependence study."
+  ]
+}

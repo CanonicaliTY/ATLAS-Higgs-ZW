@@ -1,0 +1,5 @@
+method,n_small_deltas,plateau_like_behaviour,plateau_assessment
+none,0,False,no clear plateau was seen in the scanned region
+wrong_flavour,0,False,no clear plateau was seen in the scanned region
+wrong_charge,0,False,no clear plateau was seen in the scanned region
+both_average,0,False,no clear plateau was seen in the scanned region

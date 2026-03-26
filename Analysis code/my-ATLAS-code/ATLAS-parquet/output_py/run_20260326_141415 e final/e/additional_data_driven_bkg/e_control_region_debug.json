@@ -1,0 +1,72 @@
+{
+  "channel": "e",
+  "stage_totals": {
+    "baseline": {
+      "data_counts": {
+        "ordered_11_13": 1095059.0,
+        "ordered_13_11": 0.0,
+        "ep_mum": 450597.0,
+        "mup_em": 460067.0,
+        "ee_ss": 387416.0,
+        "mumu_ss": 34029.0
+      },
+      "mc_counts": {
+        "ordered_11_13": 557164.9113039928,
+        "ordered_13_11": 0.0,
+        "ep_mum": 265332.79814516974,
+        "mup_em": 265418.2714439065,
+        "ee_ss": 26120.27628654307,
+        "mumu_ss": 2127.57471411527
+      },
+      "mc_samples_included": [
+        "Ztautau",
+        "ttbar"
+      ]
+    },
+    "mass_only": {
+      "data_counts": {
+        "ordered_11_13": 293068.0,
+        "ordered_13_11": 0.0,
+        "ep_mum": 123321.0,
+        "mup_em": 125476.0,
+        "ee_ss": 240030.0,
+        "mumu_ss": 8607.0
+      },
+      "mc_counts": {
+        "ordered_11_13": 167154.31750101756,
+        "ordered_13_11": 0.0,
+        "ep_mum": 79603.1527183132,
+        "mup_em": 79087.31755267478,
+        "ee_ss": 8561.528317991017,
+        "mumu_ss": 724.7155942923773
+      },
+      "mc_samples_included": [
+        "Ztautau",
+        "ttbar"
+      ]
+    },
+    "mass_plus_iso": {
+      "data_counts": {
+        "ordered_11_13": 233675.0,
+        "ordered_13_11": 0.0,
+        "ep_mum": 103852.0,
+        "mup_em": 105719.0,
+        "ee_ss": 216569.0,
+        "mumu_ss": 4626.0
+      },
+      "mc_counts": {
+        "ordered_11_13": 154615.8153441547,
+        "ordered_13_11": 0.0,
+        "ep_mum": 75680.85443841692,
+        "mup_em": 75146.44269778798,
+        "ee_ss": 3285.084907310382,
+        "mumu_ss": 678.8165784311581
+      },
+      "mc_samples_included": [
+        "Ztautau",
+        "ttbar"
+      ]
+    }
+  },
+  "summary": "An index-ordering issue is present: ordered opposite-flavour counts are asymmetric even when physical wrong-flavour categories survive.\nbaseline control preselection: ordered opposite-flavour counts are one-sided ((11,13)=1095059.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass-only selection: ordered opposite-flavour counts are one-sided ((11,13)=293068.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.\nmass + iso selection: ordered opposite-flavour counts are one-sided ((11,13)=233675.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering."
+}

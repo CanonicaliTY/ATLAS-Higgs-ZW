@@ -1,0 +1,39 @@
+Channel: e
+Cut consistency note: the same mass and isolation cuts are used for the signal region and the control-region DD estimate.
+
+Signal-region yields:
+      Data       Signal   Background        S/B  Data/MC
+19390459.0 1.945915e+07 91023.605278 213.781349 0.991831
+
+Regions table:
+ region   N_data         N_MC      residual  clipped_residual
+ ep_mum 103852.0 75680.854438  28171.145562      28171.145562
+ mup_em 105719.0 75146.442698  30572.557302      30572.557302
+  ee_ss 216569.0  3285.084907 213283.915093     213283.915093
+mumu_ss   4626.0   678.816578   3947.183422       3947.183422
+
+Estimators table:
+       method  estimate_raw  estimate_clipped                               description
+         none      0.000000          0.000000 Baseline with no additional DD background
+wrong_flavour  29371.851432      29371.851432            Average wrong-flavour residual
+ wrong_charge 213283.915093     213283.915093          Wrong-charge residual from ee_ss
+ both_average 121327.883262     121327.883262 Average of wrong_flavour and wrong_charge
+
+Sigma results table:
+       method     extra_bkg    sigma_pb  sigma_shift_pb  dsigma_stat_pb  dsigma_lumi_pb  epsilon  N_selected   N_bkg_total   N_sig_data  sigma_valid sigma_error
+         none      0.000000 2203.068311        0.000000        0.506269       37.452161 0.286282  19390459.0  91077.859120 1.929938e+07         True            
+wrong_flavour  29371.851432 2199.715447       -3.352864        0.506269       37.395163 0.286282  19390459.0 120449.710552 1.927001e+07         True            
+ wrong_charge 213283.915093 2178.721466      -24.346845        0.506269       37.038265 0.286282  19390459.0 304361.774213 1.908610e+07         True            
+ both_average 121327.883262 2189.218457      -13.849854        0.506269       37.216714 0.286282  19390459.0 212405.742382 1.917805e+07         True            
+
+Comparison sigma if applied:
+       method     extra_bkg    sigma_pb  sigma_shift_pb  dsigma_stat_pb  dsigma_lumi_pb  epsilon  N_selected   N_bkg_total   N_sig_data  sigma_valid sigma_error
+wrong_flavour  29371.851432 2199.715447       -3.352864        0.506269       37.395163 0.286282  19390459.0 120449.710552 1.927001e+07         True            
+ wrong_charge 213283.915093 2178.721466      -24.346845        0.506269       37.038265 0.286282  19390459.0 304361.774213 1.908610e+07         True            
+ both_average 121327.883262 2189.218457      -13.849854        0.506269       37.216714 0.286282  19390459.0 212405.742382 1.917805e+07         True            
+
+Control-region debug summary:
+An index-ordering issue is present: ordered opposite-flavour counts are asymmetric even when physical wrong-flavour categories survive.
+baseline control preselection: ordered opposite-flavour counts are one-sided ((11,13)=1095059.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.
+mass-only selection: ordered opposite-flavour counts are one-sided ((11,13)=293068.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.
+mass + iso selection: ordered opposite-flavour counts are one-sided ((11,13)=233675.000, (13,11)=0.000) while the physical wrong-flavour regions remain populated. This is consistent with fixed ntuple lepton ordering.

@@ -1,0 +1,5 @@
+method,estimate_raw,estimate_clipped,description
+none,0.0,0.0,Baseline with no additional DD background
+wrong_flavour,19585.2023497309,19585.2023497309,Average wrong-flavour residual
+wrong_charge,3096.074056478522,3096.074056478522,Wrong-charge residual from mumu_ss
+both_average,11340.63820310471,11340.63820310471,Average of wrong_flavour and wrong_charge

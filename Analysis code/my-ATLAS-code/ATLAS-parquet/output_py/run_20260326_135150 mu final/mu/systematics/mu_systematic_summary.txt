@@ -1,0 +1,36 @@
+Channel: mu
+Isolation dependence is derived from scan diagnostics relative to the fixed nominal isolation working point.
+This is a dependence study over the configured scan region, not a best-point optimiser.
+
+Per-method nominal values and uncertainties:
+       method    sigma_pb  dsigma_stat_pb  dsigma_lumi_pb  dsigma_mass_window_pb  dsigma_isolation_pb
+         none 2248.335017        0.453948       38.221695               0.827316            13.726237
+wrong_flavour 2246.554816        0.453948       38.191432               1.111883            13.438425
+ wrong_charge 2248.053599        0.453948       38.216911               0.878674            13.608259
+ both_average 2247.304207        0.453948       38.204172               0.995278            13.523342
+
+Mass-window variations:
+ variation  mass_low  mass_high        method    sigma_pb  sigma_shift_pb    extra_bkg
+68.0_114.0      68.0      114.0          none 2248.668587        0.333570     0.000000
+68.0_114.0      68.0      114.0 wrong_flavour 2247.013049        0.458234 18104.546285
+68.0_114.0      68.0      114.0  wrong_charge 2248.416148        0.362549  2760.612859
+68.0_114.0      68.0      114.0  both_average 2247.714599        0.410391 10432.579572
+64.0_118.0      64.0      118.0          none 2247.889755       -0.445262     0.000000
+64.0_118.0      64.0      118.0 wrong_flavour 2245.981369       -0.573446 21110.945341
+64.0_118.0      64.0      118.0  wrong_charge 2247.584664       -0.468935  3374.982931
+64.0_118.0      64.0      118.0  both_average 2246.783017       -0.521191 12242.964136
+70.0_112.0      70.0      112.0          none 2249.070543        0.735525     0.000000
+70.0_112.0      70.0      112.0 wrong_flavour 2247.527370        0.972554 16761.389801
+70.0_112.0      70.0      112.0  wrong_charge 2248.837647        0.784048  2529.626163
+70.0_112.0      70.0      112.0  both_average 2248.182509        0.878301  9645.507982
+62.0_120.0      62.0      120.0          none 2247.507701       -0.827316     0.000000
+62.0_120.0      62.0      120.0 wrong_flavour 2245.442933       -1.111883 22955.708629
+62.0_120.0      62.0      120.0  wrong_charge 2247.174925       -0.878674  3699.741019
+62.0_120.0      62.0      120.0  both_average 2246.308929       -0.995278 13327.724824
+
+Isolation dependence summary:
+       method  sigma_nominal_pb  dsigma_isolation_pb  max_fractional_shift  sigma_min_pb  sigma_max_pb  max_shift_ptcone  max_shift_etcone scan_mode  n_scan_points
+         none       2248.335017            13.726237              0.006105   2234.608780   2257.120647               2.5              7.25 local_box             25
+wrong_flavour       2246.554816            13.438425              0.005982   2233.116390   2255.071132               2.5              7.25 local_box             25
+ wrong_charge       2248.053599            13.608259              0.006053   2234.445339   2256.729326               2.5              7.25 local_box             25
+ both_average       2247.304207            13.523342              0.006018   2233.780865   2255.900229               2.5              7.25 local_box             25

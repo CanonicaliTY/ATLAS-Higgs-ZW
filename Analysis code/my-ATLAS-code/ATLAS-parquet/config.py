@@ -8,7 +8,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 
 SETTINGS = {
     # Usually leave this alone unless you want both channels in one run.
-    "LEPTONS": ("mu",),
+    "LEPTONS": ("e",),
 
     # Fraction read from the already-built tight parquet.
     "FRACTION": 1.0,
