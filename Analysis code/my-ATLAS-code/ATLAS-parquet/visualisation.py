@@ -260,8 +260,9 @@ def save_scan_heatmap(
     output_path: Path,
     value_column: str,
     title: str,
-    best_ptcone: float | None = None,
-    best_etcone: float | None = None,
+    value_label: str | None = None,
+    nominal_ptcone: float | None = None,
+    nominal_etcone: float | None = None,
 ) -> None:
     pivot = scan_table.pivot(index="etcone_max", columns="ptcone_max", values=value_column)
     pivot = pivot.sort_index(axis=0).sort_index(axis=1)
@@ -286,13 +287,13 @@ def save_scan_heatmap(
     axis.set_yticks(y_ticks)
     axis.set_xticklabels([f"{pivot.columns[index]:.2f}" for index in x_ticks], rotation=45, ha="right")
     axis.set_yticklabels([f"{pivot.index[index]:.2f}" for index in y_ticks])
-    figure.colorbar(image, ax=axis, label=value_column)
+    figure.colorbar(image, ax=axis, label=value_label or value_column)
 
-    if best_ptcone is not None and best_etcone is not None:
+    if nominal_ptcone is not None and nominal_etcone is not None:
         try:
-            x_position = list(pivot.columns).index(best_ptcone)
-            y_position = list(pivot.index).index(best_etcone)
-            axis.scatter([x_position], [y_position], marker="x", s=100)
+            x_position = list(pivot.columns).index(nominal_ptcone)
+            y_position = list(pivot.index).index(nominal_etcone)
+            axis.scatter([x_position], [y_position], marker="x", s=100, color="white")
         except ValueError:
             pass
 
@@ -337,6 +338,9 @@ def save_surface_plot(
     output_path: Path,
     value_column: str,
     title: str,
+    value_label: str | None = None,
+    nominal_ptcone: float | None = None,
+    nominal_etcone: float | None = None,
 ) -> None:
     pivot = scan_table.pivot(index="etcone_max", columns="ptcone_max", values=value_column)
     pivot = pivot.sort_index(axis=0).sort_index(axis=1)
@@ -354,8 +358,23 @@ def save_surface_plot(
     surface = axis.plot_surface(x_grid, y_grid, z_grid, cmap="viridis", edgecolor="none")
     axis.set_xlabel("ptcone_max [GeV]")
     axis.set_ylabel("etcone_max [GeV]")
-    axis.set_zlabel(value_column)
+    axis.set_zlabel(value_label or value_column)
     axis.set_title(title)
+    if nominal_ptcone is not None and nominal_etcone is not None:
+        nominal_rows = scan_table[
+            np.isclose(scan_table["ptcone_max"].to_numpy(dtype=float), float(nominal_ptcone))
+            & np.isclose(scan_table["etcone_max"].to_numpy(dtype=float), float(nominal_etcone))
+        ]
+        if not nominal_rows.empty:
+            nominal_value = float(nominal_rows.iloc[0][value_column])
+            if np.isfinite(nominal_value):
+                axis.scatter(
+                    [float(nominal_ptcone)],
+                    [float(nominal_etcone)],
+                    [nominal_value],
+                    color="black",
+                    s=35,
+                )
     figure.colorbar(surface, ax=axis, shrink=0.65, pad=0.1)
     save_fig(figure, output_path)
 
@@ -367,18 +386,26 @@ def save_slice_plot(
     value_column: str,
     fixed_column: str,
     title: str,
+    value_label: str | None = None,
+    fixed_value: float | None = None,
 ) -> None:
     figure, axis = plt.subplots(figsize=(9, 5))
-    for fixed_value, slice_frame in scan_table.groupby(fixed_column):
+    grouped = list(scan_table.groupby(fixed_column))
+    if fixed_value is not None and grouped:
+        available = np.asarray([float(value) for value, _ in grouped], dtype=float)
+        chosen_index = int(np.argmin(np.abs(available - float(fixed_value))))
+        grouped = [grouped[chosen_index]]
+
+    for fixed_axis_value, slice_frame in grouped:
         ordered = slice_frame.sort_values(x_column)
         axis.plot(
             ordered[x_column].values,
             ordered[value_column].values,
             marker="o",
-            label=f"{fixed_column}={fixed_value:.2f}",
+            label=f"{fixed_column}={float(fixed_axis_value):.2f}",
         )
     axis.set_xlabel(f"{x_column} [GeV]")
-    axis.set_ylabel(value_column)
+    axis.set_ylabel(value_label or value_column)
     axis.set_title(title)
     axis.legend(fontsize=8, ncols=2)
     axis.grid(alpha=0.3)

@@ -143,6 +143,7 @@ class CutPointEvaluationTests(unittest.TestCase):
 
         self.assertNotIn("selected_method", result)
         self.assertNotIn("selected_estimator", result)
+        self.assertNotIn("significance", result["signal_region_yields"])
         self.assertNotIn("selected_method", serialised)
         self.assertNotIn("selected_estimator", serialised)
 
@@ -190,4 +191,3 @@ class CutPointEvaluationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

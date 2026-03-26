@@ -1,16 +1,25 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 import awkward as ak
 import math
+import numpy as np
 import pandas as pd
+import pyarrow.parquet as pq
 
-from config import DD_ESTIMATOR_METHODS, DD_METHODS, LUMI_REL_UNC, SETTINGS
-from cross_section import compute_sigma, compute_significance
-from parquet_io import accumulate_control_stage_totals_from_tight_chunks
+from config import DD_METHODS, LUMI_REL_UNC, SETTINGS
+from cross_section import compute_sigma_from_selected
+from parquet_io import (
+    _chunk_read_columns_for_control,
+    accumulate_control_stage_totals_from_tight_chunks,
+    collect_channel_control_samples,
+    ensure_control_tight_parquet,
+    read_manifest,
+)
 from selections import apply_selection
-from utils import write_json, write_text, yield_mc
+from utils import infer_sample_code_from_name, log_step, progress_iter, weight_field, write_json, write_text, yield_mc
 from visualisation import (
     cutflow_table,
     save_additional_bkg_plot,
@@ -128,6 +137,167 @@ def _cache_key(
         round(float(etcone_max), 6),
         bool(require_both),
     )
+
+
+def _resolved_methods(methods: Sequence[str] | None) -> tuple[str, ...]:
+    if methods is None:
+        return DD_METHODS
+
+    ordered: list[str] = []
+    for method in methods:
+        if method not in DD_METHODS:
+            raise ValueError(f"Unsupported DD method {method!r}")
+        if method not in ordered:
+            ordered.append(method)
+    if not ordered:
+        raise ValueError("At least one DD method must be requested")
+    return tuple(ordered)
+
+
+def _final_selection_mask(
+    events: ak.Array,
+    mass_window: tuple[float, float],
+    ptcone_max: float,
+    etcone_max: float,
+    require_both: bool,
+) -> np.ndarray:
+    masses = np.asarray(events["mass"], dtype=float)
+    if require_both:
+        ptcone_metric = np.maximum(
+            np.asarray(events["lep_ptvarcone30"][:, 0], dtype=float),
+            np.asarray(events["lep_ptvarcone30"][:, 1], dtype=float),
+        )
+        etcone_metric = np.maximum(
+            np.asarray(events["lep_topoetcone20"][:, 0], dtype=float),
+            np.asarray(events["lep_topoetcone20"][:, 1], dtype=float),
+        )
+    else:
+        ptcone_metric = np.asarray(events["lep_ptvarcone30"][:, 0], dtype=float)
+        etcone_metric = np.asarray(events["lep_topoetcone20"][:, 0], dtype=float)
+
+    return (
+        (masses > float(mass_window[0]))
+        & (masses < float(mass_window[1]))
+        & (ptcone_metric < float(ptcone_max))
+        & (etcone_metric < float(etcone_max))
+    )
+
+
+def _chunk_weights(events: ak.Array) -> np.ndarray:
+    field = weight_field(events)
+    if field is None:
+        return np.ones(len(events), dtype=float)
+    return np.asarray(events[field], dtype=float)
+
+
+def gather_control_final_totals_for_points(
+    backend: dict,
+    lepton: str,
+    mass_window: tuple[float, float],
+    cut_points: Sequence[tuple[float, float]],
+    require_both: bool,
+    cache: dict | None = None,
+) -> dict[tuple, dict]:
+    point_map: dict[tuple, tuple[float, float]] = {}
+    totals_by_key: dict[tuple, dict] = {}
+
+    for ptcone_max, etcone_max in cut_points:
+        key = _cache_key(lepton, mass_window, ptcone_max, etcone_max, require_both)
+        if key in totals_by_key or key in point_map:
+            continue
+        if cache is not None and key in cache:
+            totals_by_key[key] = cache[key]
+            continue
+        point_map[key] = (float(ptcone_max), float(etcone_max))
+
+    if not point_map:
+        return totals_by_key
+
+    root = ensure_control_tight_parquet(backend)
+    manifest = read_manifest(root)
+    if manifest is None:
+        raise RuntimeError(f"Missing control manifest under {root}")
+
+    sample_info = collect_channel_control_samples(lepton)
+    data_sample = sample_info["data_sample"]
+    mc_sample_set = set(sample_info["mc_samples"])
+    relevant_samples = set(sample_info["all_samples"])
+
+    subdir_to_sample = {}
+    for row in manifest.get("samples", []):
+        if row.get("output_subdir") and row.get("sample"):
+            subdir_to_sample[str(row["output_subdir"])] = str(row["sample"])
+
+    for key in point_map:
+        totals_by_key[key] = {
+            "data_counts": {region: 0.0 for region in PHYSICAL_REGION_NAMES},
+            "mc_counts": {region: 0.0 for region in PHYSICAL_REGION_NAMES},
+            "mc_samples_included": set(),
+        }
+
+    relevant_subdirs = []
+    for subdir_name in manifest["subdirs"]:
+        sample_code = subdir_to_sample.get(subdir_name)
+        if sample_code is None:
+            sample_code = infer_sample_code_from_name(subdir_name, list(relevant_samples))
+        if sample_code is None or sample_code not in relevant_samples:
+            continue
+        relevant_subdirs.append((subdir_name, sample_code))
+
+    if point_map:
+        log_step(f"[{lepton}] Accumulating scan control-region yields in one pass")
+
+    iterator = progress_iter(relevant_subdirs, total=len(relevant_subdirs), desc=f"{lepton} scan control", unit="sample")
+    for subdir_name, sample_code in iterator:
+        subdir = root / subdir_name
+        for parquet_file in sorted(subdir.rglob("*.parquet")):
+            parquet_handle = pq.ParquetFile(parquet_file)
+            file_fields = set(parquet_handle.schema_arrow.names)
+            missing = {"lep_type", "lep_charge", "lep_ptvarcone30", "lep_topoetcone20", "mass"} - file_fields
+            if missing:
+                raise KeyError(f"Missing required control fields in {parquet_file}: {sorted(missing)}")
+
+            columns = _chunk_read_columns_for_control(file_fields)
+            for row_group in range(parquet_handle.num_row_groups):
+                table = parquet_handle.read_row_group(row_group, columns=columns)
+                if table.num_rows == 0:
+                    continue
+
+                chunk = ak.from_arrow(table)
+                region_masks = {
+                    region: np.asarray(mask, dtype=bool)
+                    for region, mask in control_region_masks(chunk).items()
+                }
+                chunk_weights = _chunk_weights(chunk)
+
+                for key, (ptcone_max, etcone_max) in point_map.items():
+                    final_mask = _final_selection_mask(
+                        chunk,
+                        mass_window=mass_window,
+                        ptcone_max=ptcone_max,
+                        etcone_max=etcone_max,
+                        require_both=require_both,
+                    )
+                    if not np.any(final_mask):
+                        continue
+
+                    point_totals = totals_by_key[key]
+                    if sample_code == data_sample:
+                        for region in PHYSICAL_REGION_NAMES:
+                            point_totals["data_counts"][region] += float(np.count_nonzero(final_mask & region_masks[region]))
+                    elif sample_code in mc_sample_set:
+                        for region in PHYSICAL_REGION_NAMES:
+                            combined_mask = final_mask & region_masks[region]
+                            if np.any(combined_mask):
+                                point_totals["mc_counts"][region] += float(np.sum(chunk_weights[combined_mask]))
+                        point_totals["mc_samples_included"].add(sample_code)
+
+    for key, point_totals in totals_by_key.items():
+        point_totals["mc_samples_included"] = sorted(point_totals["mc_samples_included"])
+        if cache is not None:
+            cache[key] = point_totals
+
+    return totals_by_key
 
 
 def gather_control_stage_totals(
@@ -276,7 +446,7 @@ def _final_stage_counts(stage_totals: dict) -> tuple[dict[str, float], dict[str,
     return data_counts, mc_counts
 
 
-def _sigma_results_table(
+def build_sigma_results_table(
     plot_os: dict,
     channel_config: dict,
     produced_event_count_fn,
@@ -286,23 +456,31 @@ def _sigma_results_table(
     require_both: bool,
     estimator_map: dict[str, dict[str, float | str]],
     produced_cache: dict[str, float] | None,
+    methods: Sequence[str] | None = None,
+    selected_os: dict | None = None,
 ) -> pd.DataFrame:
+    resolved_methods = _resolved_methods(methods)
+    if selected_os is None:
+        selected_os = select_plotdict(
+            plot_os,
+            mass_window=mass_window,
+            ptcone_max=ptcone_max,
+            etcone_max=etcone_max,
+            require_both=require_both,
+        )
+
     rows = []
     sigma_none = None
     sigma_none_valid = False
-    for method in DD_METHODS:
+    for method in resolved_methods:
         extra_background = 0.0 if method == "none" else float(estimator_map[method]["clipped"])
         sigma_valid = True
         sigma_error = ""
         try:
-            sigma_result = compute_sigma(
-                plot_os=plot_os,
+            sigma_result = compute_sigma_from_selected(
+                selected_plot_os=selected_os,
                 channel_config=channel_config,
                 produced_event_count_fn=produced_event_count_fn,
-                mass_window=mass_window,
-                ptcone_max=ptcone_max,
-                etcone_max=etcone_max,
-                require_both=require_both,
                 extra_bkg=extra_background,
                 produced_sumw_cache=produced_cache,
             )
@@ -359,7 +537,9 @@ def evaluate_cut_point(
     produced_cache: dict[str, float] | None = None,
     stage_totals: dict | None = None,
     include_cutflows: bool = False,
+    methods: Sequence[str] | None = None,
 ) -> dict:
+    resolved_methods = _resolved_methods(methods)
     if stage_totals is None:
         if backend is None:
             raise ValueError("backend is required when stage_totals are not supplied")
@@ -387,7 +567,6 @@ def evaluate_cut_point(
         "Background": os_background,
         "S/B": os_s_over_b,
         "Data/MC": os_data_over_mc,
-        "significance": compute_significance(os_signal, os_background),
     }
 
     ss_yields = None
@@ -415,7 +594,7 @@ def evaluate_cut_point(
         mc_counts=mc_counts,
         clip_negative=bool(SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["CLIP_NEGATIVE_TO_ZERO"]),
     )
-    sigma_results_table = _sigma_results_table(
+    sigma_results_table = build_sigma_results_table(
         plot_os=plot_os,
         channel_config=channel_config,
         produced_event_count_fn=produced_event_count_fn,
@@ -425,11 +604,14 @@ def evaluate_cut_point(
         require_both=require_both,
         estimator_map=estimator_map,
         produced_cache=produced_cache,
+        methods=resolved_methods,
+        selected_os=selected_os,
     )
-    sigma_none = float(sigma_results_table.loc[sigma_results_table["method"] == "none", "sigma_pb"].iloc[0])
     sigma_results_table["dsigma_lumi_pb"] = sigma_results_table["sigma_pb"] * LUMI_REL_UNC
     comparison_sigma_if_applied = sigma_results_table[sigma_results_table["method"] != "none"].copy()
-    comparison_sigma_if_applied["sigma_shift_pb"] = comparison_sigma_if_applied["sigma_pb"] - sigma_none
+    if "none" in sigma_results_table["method"].tolist():
+        sigma_none = float(sigma_results_table.loc[sigma_results_table["method"] == "none", "sigma_pb"].iloc[0])
+        comparison_sigma_if_applied["sigma_shift_pb"] = comparison_sigma_if_applied["sigma_pb"] - sigma_none
 
     os_cutflow = None
     ss_cutflow = None
@@ -469,6 +651,104 @@ def evaluate_cut_point(
         "ss_cutflow": ss_cutflow,
         "debug_summary": index_ordering_diagnostic(stage_totals),
     }
+
+
+def evaluate_scan_cut_points(
+    lepton: str,
+    plot_os: dict,
+    channel_config: dict,
+    produced_event_count_fn,
+    backend: dict,
+    mass_window: tuple[float, float],
+    cut_points: Sequence[tuple[float, float]],
+    require_both: bool,
+    nominal_cut_point: dict | None = None,
+    produced_cache: dict[str, float] | None = None,
+    control_cache: dict | None = None,
+    methods: Sequence[str] | None = None,
+) -> dict[tuple[float, float], dict]:
+    resolved_methods = _resolved_methods(methods)
+    unique_points: dict[tuple, tuple[float, float]] = {}
+    for ptcone_max, etcone_max in cut_points:
+        key = _cache_key(lepton, mass_window, ptcone_max, etcone_max, require_both)
+        if key not in unique_points:
+            unique_points[key] = (float(ptcone_max), float(etcone_max))
+
+    if not unique_points:
+        return {}
+
+    nominal_key = None
+    nominal_lookup = None
+    if nominal_cut_point is not None:
+        nominal_cuts = nominal_cut_point["cuts"]
+        nominal_key = _cache_key(
+            lepton,
+            tuple(nominal_cuts["mass_window"]),
+            float(nominal_cuts["ptcone_max"]),
+            float(nominal_cuts["etcone_max"]),
+            bool(nominal_cuts["require_both_iso"]),
+        )
+        nominal_lookup = nominal_cut_point["sigma_results_table"].set_index("method")
+
+    batched_control_totals = gather_control_final_totals_for_points(
+        backend=backend,
+        lepton=lepton,
+        mass_window=mass_window,
+        cut_points=list(unique_points.values()),
+        require_both=require_both,
+        cache=control_cache,
+    )
+
+    evaluations: dict[tuple[float, float], dict] = {}
+    iterator = progress_iter(unique_points.items(), total=len(unique_points), desc=f"{lepton} scan sigma", unit="pt")
+    for key, (ptcone_max, etcone_max) in iterator:
+        if nominal_key is not None and key == nominal_key and nominal_lookup is not None:
+            sigma_results_table = (
+                nominal_lookup.loc[list(resolved_methods)]
+                .reset_index()
+                .copy()
+            )
+            evaluations[(ptcone_max, etcone_max)] = {
+                "sigma_results_table": sigma_results_table,
+                "from_nominal_cache": True,
+            }
+            continue
+
+        point_totals = batched_control_totals[key]
+        regions_table, estimators_table, estimator_map = compute_estimator_tables(
+            lepton=lepton,
+            data_counts=point_totals["data_counts"],
+            mc_counts=point_totals["mc_counts"],
+            clip_negative=bool(SETTINGS["ADDITIONAL_DATA_DRIVEN_BKG"]["CLIP_NEGATIVE_TO_ZERO"]),
+        )
+        selected_os = select_plotdict(
+            plot_os,
+            mass_window=mass_window,
+            ptcone_max=ptcone_max,
+            etcone_max=etcone_max,
+            require_both=require_both,
+        )
+        sigma_results_table = build_sigma_results_table(
+            plot_os=plot_os,
+            channel_config=channel_config,
+            produced_event_count_fn=produced_event_count_fn,
+            mass_window=mass_window,
+            ptcone_max=ptcone_max,
+            etcone_max=etcone_max,
+            require_both=require_both,
+            estimator_map=estimator_map,
+            produced_cache=produced_cache,
+            methods=resolved_methods,
+            selected_os=selected_os,
+        )
+        evaluations[(ptcone_max, etcone_max)] = {
+            "regions_table": regions_table,
+            "estimators_table": estimators_table,
+            "sigma_results_table": sigma_results_table,
+            "from_nominal_cache": False,
+        }
+
+    return evaluations
 
 
 def serialise_cut_point_result(cut_point_result: dict) -> dict:

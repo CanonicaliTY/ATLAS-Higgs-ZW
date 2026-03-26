@@ -21,24 +21,34 @@ SETTINGS = {
     "REQUIRE_BOTH_ISO": True,
     "FIXED_ISO": {"ptcone_max": 4.5, "etcone_max": 9.25},
 
-    # Isolation scan:
-    # - optimisation uses significance with an OS signal-efficiency floor,
-    # - diagnostics enrich the scan with DD-background-aware sigma values.
+    # Isolation scan diagnostics:
+    # - FIXED_ISO is always the nominal working point used for the final result,
+    # - the scan is a dependence study only and never overwrites FIXED_ISO,
+    # - lightweight modes keep routine diagnostics much faster than a full grid.
     "ISO_SCAN": {
-        "RUN_OPTIMISATION_SCAN": True,
         "RUN_SCAN_DIAGNOSTICS": True,
+        "SCAN_MODE": "local_box",
         "PTCONE_RANGE": (0.0, 10.0),
         "PTCONE_STEP": 1.0,
         "ETCONE_RANGE": (0.0, 20.0),
         "ETCONE_STEP": 1.0,
-        # Usually leave this alone; it prevents the scan from choosing
-        # isolation cuts that destroy the OS signal efficiency.
-        "OS_SIG_EFF_MIN": {"mu": 0.995, "e": 0.995},
-        # These save flags only do anything if the corresponding scan is enabled.
-        "SAVE_HEATMAPS": True,
-        "SAVE_3D_PLOTS": True,
-        "SAVE_SLICE_PLOTS": True,
+        "LOCAL_BOX_PTCONE_HALF_WIDTH": 2.0,
+        "LOCAL_BOX_ETCONE_HALF_WIDTH": 2.0,
+        "SAVE_SIGMA_HEATMAPS": True,
+        "SAVE_SIGMA_3D_PLOTS": False,
+        "SAVE_SIGMA_SLICE_PLOTS": True,
+        "SAVE_SHIFT_HEATMAPS": True,
+        "SAVE_SHIFT_3D_PLOTS": False,
+        "SAVE_SHIFT_SLICE_PLOTS": True,
+        "SAVE_FRACTIONAL_SHIFT_HEATMAPS": True,
+        "SAVE_FRACTIONAL_SHIFT_3D_PLOTS": False,
+        "SAVE_FRACTIONAL_SHIFT_SLICE_PLOTS": False,
+        "DD_METHODS_BY_CHANNEL": {
+            "mu": ["none", "wrong_flavour", "wrong_charge", "both_average"],
+            "e": ["none", "wrong_flavour", "wrong_charge", "both_average"],
+        },
         "MONOTONICITY_TOL_ABS": 1e-4,
+        "LOCAL_STABILITY_NEIGHBOURS": 4,
     },
 
     # Keep the terminal concise by default and show progress bars for the
@@ -186,11 +196,22 @@ def medium_id_mode() -> str:
     return "apply_all_if_available" if SETTINGS["MEDIUM_ID"]["APPLY"] else "disabled"
 
 
-def iso_eff_threshold_for(lepton: str) -> float:
-    value = SETTINGS["ISO_SCAN"]["OS_SIG_EFF_MIN"]
-    if isinstance(value, dict):
-        return float(value[lepton])
-    return float(value)
+def scan_dd_methods_for(lepton: str) -> tuple[str, ...]:
+    configured = SETTINGS["ISO_SCAN"]["DD_METHODS_BY_CHANNEL"]
+    if isinstance(configured, dict):
+        methods = configured.get(lepton, DD_METHODS)
+    else:
+        methods = configured
+
+    ordered: list[str] = []
+    for method in methods:
+        if method not in DD_METHODS:
+            raise ValueError(f"Unsupported scan DD method {method!r} for channel {lepton!r}")
+        if method not in ordered:
+            ordered.append(method)
+    if not ordered:
+        raise ValueError(f"No scan DD methods were configured for channel {lepton!r}")
+    return tuple(ordered)
 
 
 def control_sample_codes_for_build() -> list[str]:

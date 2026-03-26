@@ -7,40 +7,21 @@ from utils import produced_sumw, yield_data, yield_mc, yield_mc_var
 from visualisation import select_plotdict
 
 
-def compute_significance(signal_yield: float, background_yield: float) -> float:
-    total = float(signal_yield) + float(background_yield)
-    if total <= 0.0 or signal_yield <= 0.0:
-        return 0.0
-    return float(signal_yield) / math.sqrt(total)
-
-
-def compute_sigma(
-    plot_os: dict,
+def compute_sigma_from_selected(
+    selected_plot_os: dict,
     channel_config: dict,
     produced_event_count_fn,
-    mass_window: tuple[float, float],
-    ptcone_max: float,
-    etcone_max: float,
-    require_both: bool,
     extra_bkg: float = 0.0,
     produced_sumw_cache: dict[str, float] | None = None,
 ) -> dict:
     primary_signal = channel_config["primary_signal"]
     primary_signal_label = f"Signal {primary_signal}"
 
-    selected = select_plotdict(
-        plot_os,
-        mass_window=mass_window,
-        ptcone_max=ptcone_max,
-        etcone_max=etcone_max,
-        require_both=require_both,
-    )
-
-    n_selected = yield_data(selected.get("Data"))
+    n_selected = yield_data(selected_plot_os.get("Data"))
 
     n_background_mc = 0.0
     n_background_var = 0.0
-    for label, events in selected.items():
+    for label, events in selected_plot_os.items():
         if label in {"Data", primary_signal_label}:
             continue
         n_background_mc += yield_mc(events)
@@ -49,7 +30,7 @@ def compute_sigma(
     n_background_total = n_background_mc + float(extra_bkg)
     n_signal_data = n_selected - n_background_total
 
-    signal_pass_weight = yield_mc(selected.get(primary_signal_label))
+    signal_pass_weight = yield_mc(selected_plot_os.get(primary_signal_label))
     signal_total_weight = produced_sumw(
         produced_event_count_fn,
         primary_signal,
@@ -82,3 +63,30 @@ def compute_sigma(
         "dsigma_stat_pb": d_sigma_stat_pb,
         "dsigma_lumi_pb": abs(sigma_pb) * LUMI_REL_UNC,
     }
+
+
+def compute_sigma(
+    plot_os: dict,
+    channel_config: dict,
+    produced_event_count_fn,
+    mass_window: tuple[float, float],
+    ptcone_max: float,
+    etcone_max: float,
+    require_both: bool,
+    extra_bkg: float = 0.0,
+    produced_sumw_cache: dict[str, float] | None = None,
+) -> dict:
+    selected = select_plotdict(
+        plot_os,
+        mass_window=mass_window,
+        ptcone_max=ptcone_max,
+        etcone_max=etcone_max,
+        require_both=require_both,
+    )
+    return compute_sigma_from_selected(
+        selected_plot_os=selected,
+        channel_config=channel_config,
+        produced_event_count_fn=produced_event_count_fn,
+        extra_bkg=extra_bkg,
+        produced_sumw_cache=produced_sumw_cache,
+    )
