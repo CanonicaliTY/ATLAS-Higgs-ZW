@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import awkward as ak
+import math
 import pandas as pd
 
 from config import DD_ESTIMATOR_METHODS, DD_METHODS, LUMI_REL_UNC, SETTINGS
@@ -288,32 +289,56 @@ def _sigma_results_table(
 ) -> pd.DataFrame:
     rows = []
     sigma_none = None
+    sigma_none_valid = False
     for method in DD_METHODS:
         extra_background = 0.0 if method == "none" else float(estimator_map[method]["clipped"])
-        sigma_result = compute_sigma(
-            plot_os=plot_os,
-            channel_config=channel_config,
-            produced_event_count_fn=produced_event_count_fn,
-            mass_window=mass_window,
-            ptcone_max=ptcone_max,
-            etcone_max=etcone_max,
-            require_both=require_both,
-            extra_bkg=extra_background,
-            produced_sumw_cache=produced_cache,
-        )
-        if method == "none":
+        sigma_valid = True
+        sigma_error = ""
+        try:
+            sigma_result = compute_sigma(
+                plot_os=plot_os,
+                channel_config=channel_config,
+                produced_event_count_fn=produced_event_count_fn,
+                mass_window=mass_window,
+                ptcone_max=ptcone_max,
+                etcone_max=etcone_max,
+                require_both=require_both,
+                extra_bkg=extra_background,
+                produced_sumw_cache=produced_cache,
+            )
+        except ZeroDivisionError as exc:
+            sigma_valid = False
+            sigma_error = str(exc)
+            sigma_result = {
+                "sigma_pb": math.nan,
+                "dsigma_stat_pb": math.nan,
+                "dsigma_lumi_pb": math.nan,
+                "epsilon": math.nan,
+                "N_selected": math.nan,
+                "N_bkg_total": math.nan,
+                "N_sig_data": math.nan,
+            }
+        if method == "none" and sigma_valid:
             sigma_none = sigma_result["sigma_pb"]
+            sigma_none_valid = True
+
+        sigma_shift_pb = math.nan
+        if sigma_valid and sigma_none_valid and sigma_none is not None:
+            sigma_shift_pb = sigma_result["sigma_pb"] - float(sigma_none)
         rows.append(
             {
                 "method": method,
                 "extra_bkg": extra_background,
                 "sigma_pb": sigma_result["sigma_pb"],
-                "sigma_shift_pb": sigma_result["sigma_pb"] - float(sigma_none if sigma_none is not None else sigma_result["sigma_pb"]),
+                "sigma_shift_pb": sigma_shift_pb,
                 "dsigma_stat_pb": sigma_result["dsigma_stat_pb"],
+                "dsigma_lumi_pb": sigma_result["dsigma_lumi_pb"],
                 "epsilon": sigma_result["epsilon"],
                 "N_selected": sigma_result["N_selected"],
                 "N_bkg_total": sigma_result["N_bkg_total"],
                 "N_sig_data": sigma_result["N_sig_data"],
+                "sigma_valid": sigma_valid,
+                "sigma_error": sigma_error,
             }
         )
     return pd.DataFrame(rows)

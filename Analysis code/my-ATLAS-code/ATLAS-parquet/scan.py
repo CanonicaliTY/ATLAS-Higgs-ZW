@@ -106,6 +106,22 @@ def build_scan_diagnostics_table(
     for row in iterator:
         evaluation = cut_point_evaluator(float(row["ptcone_max"]), float(row["etcone_max"]))
         sigma_results = evaluation["sigma_results_table"].set_index("method")
+        sigma_valid_series = (
+            sigma_results["sigma_valid"]
+            if "sigma_valid" in sigma_results.columns
+            else pd.Series(True, index=sigma_results.index)
+        )
+        sigma_error_series = (
+            sigma_results["sigma_error"]
+            if "sigma_error" in sigma_results.columns
+            else pd.Series("", index=sigma_results.index)
+        )
+        point_valid = bool(sigma_valid_series.fillna(False).all())
+        point_errors = [
+            str(error)
+            for error in sigma_error_series.tolist()
+            if isinstance(error, str) and error.strip()
+        ]
         rows.append(
             {
                 **row,
@@ -119,6 +135,8 @@ def build_scan_diagnostics_table(
                 "sigma_shift_pb_wrong_flavour": float(sigma_results.loc["wrong_flavour", "sigma_shift_pb"]),
                 "sigma_shift_pb_wrong_charge": float(sigma_results.loc["wrong_charge", "sigma_shift_pb"]),
                 "sigma_shift_pb_both_average": float(sigma_results.loc["both_average", "sigma_shift_pb"]),
+                "sigma_defined": point_valid,
+                "sigma_error": "; ".join(dict.fromkeys(point_errors)),
             }
         )
     return pd.DataFrame(rows)
@@ -160,6 +178,8 @@ def build_monotonicity_diagnostics(
         for fixed_axis, varying_axis in (("etcone_max", "ptcone_max"), ("ptcone_max", "etcone_max")):
             for fixed_value, slice_frame in diagnostic_table.groupby(fixed_axis):
                 ordered = slice_frame.sort_values(varying_axis)
+                finite_mask = np.isfinite(ordered[sigma_column].to_numpy(dtype=float))
+                ordered = ordered.loc[finite_mask]
                 values = ordered[sigma_column].tolist()
                 varying_values = ordered[varying_axis].tolist()
                 deltas = []

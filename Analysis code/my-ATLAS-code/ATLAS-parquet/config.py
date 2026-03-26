@@ -25,8 +25,8 @@ SETTINGS = {
     # - optimisation uses significance with an OS signal-efficiency floor,
     # - diagnostics enrich the scan with DD-background-aware sigma values.
     "ISO_SCAN": {
-        "RUN_OPTIMISATION_SCAN": False,
-        "RUN_SCAN_DIAGNOSTICS": False,
+        "RUN_OPTIMISATION_SCAN": True,
+        "RUN_SCAN_DIAGNOSTICS": True,
         "PTCONE_RANGE": (0.0, 10.0),
         "PTCONE_STEP": 1.0,
         "ETCONE_RANGE": (0.0, 20.0),

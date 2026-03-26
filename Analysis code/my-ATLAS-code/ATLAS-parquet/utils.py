@@ -38,7 +38,10 @@ def ensure_parent(path: Path) -> None:
 
 def log_step(message: str) -> None:
     if SETTINGS["TERMINAL"]["SHOW_STAGE_LOGS"]:
-        print(message, flush=True)
+        if SETTINGS["PROGRESS"]["ENABLED"] and tqdm is not None:
+            tqdm.write(message)
+        else:
+            print(message, flush=True)
 
 
 def safe_rmtree(path: Path) -> None:

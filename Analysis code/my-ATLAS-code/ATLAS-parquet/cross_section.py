@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 
-from config import LUMI_FB, LUMI_PB
+from config import LUMI_FB, LUMI_PB, LUMI_REL_UNC
 from utils import produced_sumw, yield_data, yield_mc, yield_mc_var
 from visualisation import select_plotdict
 
@@ -80,4 +80,5 @@ def compute_sigma(
         "epsilon": efficiency,
         "sigma_pb": sigma_pb,
         "dsigma_stat_pb": d_sigma_stat_pb,
+        "dsigma_lumi_pb": abs(sigma_pb) * LUMI_REL_UNC,
     }

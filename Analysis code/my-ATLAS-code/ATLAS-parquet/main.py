@@ -135,13 +135,18 @@ def _save_scan_diagnostics_outputs(
 
     summary_lines = [
         "Scan diagnostics are exploratory outputs, not an official isolation systematic.",
+        f"Scan points with defined sigma values: {int(diagnostic_table['sigma_defined'].sum())}/{len(diagnostic_table)}",
         "",
         "Sigma ranges across the scanned grid:",
     ]
     for method in DD_METHODS:
         value_column = f"sigma_pb_{method}"
+        finite_values = diagnostic_table[value_column].dropna()
+        if finite_values.empty:
+            summary_lines.append(f"{method}: no valid sigma values on this scan grid")
+            continue
         summary_lines.append(
-            f"{method}: min={diagnostic_table[value_column].min():.6f} pb, max={diagnostic_table[value_column].max():.6f} pb"
+            f"{method}: min={finite_values.min():.6f} pb, max={finite_values.max():.6f} pb"
         )
     summary_lines.extend(
         [

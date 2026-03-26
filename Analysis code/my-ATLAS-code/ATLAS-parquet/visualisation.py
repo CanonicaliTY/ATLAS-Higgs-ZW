@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from pathlib import Path
 
-os.environ.setdefault("MPLCONFIGDIR", str((Path(__file__).resolve().parent / ".mplconfig").resolve()))
+os.environ.setdefault("MPLCONFIGDIR", str((Path(tempfile.gettempdir()) / "atlas_parquet_mplconfig").resolve()))
 
 import matplotlib
 
@@ -264,9 +265,17 @@ def save_scan_heatmap(
 ) -> None:
     pivot = scan_table.pivot(index="etcone_max", columns="ptcone_max", values=value_column)
     pivot = pivot.sort_index(axis=0).sort_index(axis=1)
+    values = np.asarray(pivot.values, dtype=float)
+    masked = np.ma.masked_invalid(values)
 
     figure, axis = plt.subplots(figsize=(8, 6))
-    image = axis.imshow(pivot.values, origin="lower", aspect="auto")
+    if masked.count() == 0:
+        axis.text(0.5, 0.5, "No valid values", ha="center", va="center", transform=axis.transAxes)
+        axis.set_axis_off()
+        save_fig(figure, output_path)
+        return
+
+    image = axis.imshow(masked, origin="lower", aspect="auto")
     axis.set_title(title)
     axis.set_xlabel("ptcone_max [GeV]")
     axis.set_ylabel("etcone_max [GeV]")
@@ -333,10 +342,15 @@ def save_surface_plot(
     pivot = pivot.sort_index(axis=0).sort_index(axis=1)
 
     x_grid, y_grid = np.meshgrid(pivot.columns.values, pivot.index.values)
-    z_grid = pivot.values
+    z_grid = np.ma.masked_invalid(np.asarray(pivot.values, dtype=float))
 
     figure = plt.figure(figsize=(9, 7))
     axis = figure.add_subplot(111, projection="3d")
+    if z_grid.count() == 0:
+        axis.text2D(0.5, 0.5, "No valid values", ha="center", va="center", transform=axis.transAxes)
+        axis.set_axis_off()
+        save_fig(figure, output_path)
+        return
     surface = axis.plot_surface(x_grid, y_grid, z_grid, cmap="viridis", edgecolor="none")
     axis.set_xlabel("ptcone_max [GeV]")
     axis.set_ylabel("etcone_max [GeV]")
