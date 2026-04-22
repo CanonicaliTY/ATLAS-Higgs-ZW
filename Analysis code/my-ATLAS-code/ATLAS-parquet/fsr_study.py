@@ -68,7 +68,7 @@ FSR_SETTINGS = {
     "READ_FRACTION": 1.0,
 
     # Dedicated parquet for the FSR study
-    "FORCE_REBUILD": False,
+    "FORCE_REBUILD": True,
     "ROOT_DIR": "../../tight-parquet-fsr",
 
     # Baseline dimuon preselection
