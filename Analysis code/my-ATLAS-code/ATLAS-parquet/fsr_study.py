@@ -155,8 +155,20 @@ def _fsr_manifest_path(root: Path) -> Path:
     return root / "_manifest.json"
 
 
-def _fsr_build_cut(lepton: str, apply_medium_id: bool, medium_field: str | None):
+def _fsr_build_cut(
+    lepton: str,
+    apply_medium_id: bool,
+    medium_field: str | None,
+    required_input_fields: list[str] | None = None,
+):
+    # Keep the final physics fields *and* the raw fields needed by the build-time
+    # preselection.  The backend parquet builder may re-apply the cut function on
+    # already-written chunks; if lep_n / trig / Medium-ID fields are dropped too
+    # early, baseline_main_preselection will crash on that second pass.
     keep = _fsr_keep_fields()
+    for field in required_input_fields or []:
+        if field not in keep:
+            keep.append(field)
 
     def cut_function(events: ak.Array) -> ak.Array:
         selected = baseline_main_preselection(
@@ -225,6 +237,7 @@ def ensure_fsr_tight_parquet(lepton: str, backend: dict) -> Path:
                 lepton=lepton,
                 apply_medium_id=apply_medium_id,
                 medium_field=medium_field,
+                required_input_fields=needed_raw,
             ),
             backend=backend,
             fraction=build_fraction,
