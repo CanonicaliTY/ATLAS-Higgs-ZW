@@ -19,7 +19,7 @@ SETTINGS = {
     # Final signal-region mass selection for the nominal cut point.
     "MASS_WINDOW": (66.0, 116.0),
     "REQUIRE_BOTH_ISO": True,
-    "FIXED_ISO": {"ptcone_max": 4.5, "etcone_max": 9.25},
+    "FIXED_ISO": {"ptcone_max": 9, "etcone_max": 6},
 
     # Isolation scan diagnostics:
     # - FIXED_ISO is always the nominal working point used for the final result,
