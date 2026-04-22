@@ -1,0 +1,84 @@
+{
+  "LEPTON": "mu",
+  "BUILD_FRACTION": 1.0,
+  "READ_FRACTION": 1.0,
+  "FORCE_REBUILD": true,
+  "ROOT_DIR": "../../tight-parquet-fsr",
+  "PT_MIN": 10.0,
+  "APPLY_MEDIUM_ID": true,
+  "NOMINAL_ISO": {
+    "ptcone_max": 9.0,
+    "etcone_max": 6.0
+  },
+  "LOOSE_ISO": {
+    "ptcone_max": 15.0,
+    "etcone_max": 15.0
+  },
+  "REQUIRE_BOTH_ISO": true,
+  "MASS_WINDOW": [
+    66.0,
+    116.0
+  ],
+  "FSR": {
+    "APPLY_BELOW_MASS": 80.0,
+    "ETCONE_SCALE": 1.0,
+    "MODES": [
+      "maxcone",
+      "both"
+    ]
+  },
+  "SCAN": {
+    "RUN": true,
+    "MODE": "local_box",
+    "PTCONE_RANGE": [
+      0.0,
+      10.0
+    ],
+    "PTCONE_STEP": 1.0,
+    "ETCONE_RANGE": [
+      0.0,
+      20.0
+    ],
+    "ETCONE_STEP": 1.0,
+    "LOCAL_BOX_PTCONE_HALF_WIDTH": 2.0,
+    "LOCAL_BOX_ETCONE_HALF_WIDTH": 2.0
+  },
+  "OUTPUT_DIR": "output_fsr",
+  "SAVE_PLOTS": true,
+  "MASS_PLOT": {
+    "FULL": {
+      "xmin": 0.0,
+      "xmax": 200.0,
+      "bins": 120,
+      "logy": true
+    },
+    "ZOOM": {
+      "xmin": 40.0,
+      "xmax": 120.0,
+      "bins": 80,
+      "logy": true
+    }
+  },
+  "WINDOWS": [
+    [
+      10.0,
+      40.0
+    ],
+    [
+      40.0,
+      66.0
+    ],
+    [
+      66.0,
+      80.0
+    ],
+    [
+      80.0,
+      100.0
+    ],
+    [
+      100.0,
+      116.0
+    ]
+  ]
+}
