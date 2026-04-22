@@ -9,100 +9,90 @@ workflow stays stable and this additional study remains readable.
 What it does
 ------------
 1. Build (or reuse) a dedicated tight parquet that keeps the 4-vector information needed for
-   FSR-style mass recovery.
-2. Load OS dimuon events for data + MC.
-3. Construct a control sample: events that fail the nominal isolation point but pass a looser one.
-4. Build toy FSR-recovery masses by treating topoetcone20 as a collinear photon proxy.
-5. Save before/after stacked-mass plots and a small sigma scan around the nominal cut.
+   toy FSR-style mass recovery.
+2. Stream that parquet sample-by-sample and row-group-by-row-group.
+3. Construct the control sample "fail nominal isolation but pass loose isolation".
+4. Accumulate stacked mass histograms, mass-window tables, and sigma-scan totals without
+   materialising all OS events in memory.
 
 Important physics note
 ----------------------
-This is a toy study, not a precision photon reconstruction.  The correction interprets
-lep_topoetcone20 as a near-muon radiated-photon proxy and adds it back collinearly to the
-muon 4-vector.  It is therefore best viewed as a hypothesis test.
+This is a toy study, not a precision photon reconstruction. The correction interprets
+`lep_topoetcone20` as a near-muon radiated-photon proxy and adds it back collinearly to the
+muon 4-vector. It is therefore best viewed as a hypothesis test.
 """
 
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import awkward as ak
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import vector
+import pyarrow.parquet as pq
 
-from config import CHANNELS, LUMI_FB, LUMI_PB, SCRIPT_DIR, SETTINGS
-from cross_section import compute_sigma_from_selected
+from config import CHANNELS, LUMI_FB, SCRIPT_DIR, SETTINGS
+from cross_section import compute_sigma_from_totals
 from parquet_io import (
     available_raw_fields,
     build_one_sample_to_root,
     choose_medium_field,
-    load_tight_subdirs,
     manifest_complete,
     read_manifest,
     reset_root_for_rebuild,
     should_apply_medium_id,
 )
 from scan import generate_scan_points
-from selections import baseline_main_preselection, make_sign_cut, slim_keep_fields
+from selections import baseline_main_preselection, slim_keep_fields
 from utils import (
     ensure_environment,
     ensure_script_directory,
-    get_sample_key_by_prefix,
+    infer_sample_code_from_name,
     import_backend,
     log_step,
     now_stamp,
+    produced_sumw,
     progress_iter,
+    weight_field,
     write_json,
     write_text,
-    yield_data,
-    yield_mc,
 )
 from visualisation import save_fig, save_scan_heatmap
 
 
 FSR_SETTINGS = {
-    # Main physics choice
+    # This dedicated study is explicitly muon-channel only.
     "LEPTON": "mu",
 
-    # Fractions
+    # Fractions for parquet build / readback.
     "BUILD_FRACTION": 1.0,
     "READ_FRACTION": 1.0,
 
-    # Dedicated parquet for the FSR study
-    "FORCE_REBUILD": True,
+    # Dedicated parquet for the FSR study.
+    "FORCE_REBUILD": False,
     "ROOT_DIR": "../../tight-parquet-fsr",
 
-    # Baseline dimuon preselection
+    # Baseline dimuon preselection.
     "PT_MIN": float(SETTINGS["PT_MIN"]),
     "APPLY_MEDIUM_ID": bool(SETTINGS["MEDIUM_ID"]["APPLY"]),
 
-    # Isolation working points
-    "NOMINAL_ISO": {
-        "ptcone_max": float(SETTINGS["FIXED_ISO"]["ptcone_max"]),
-        "etcone_max": float(SETTINGS["FIXED_ISO"]["etcone_max"]),
-    },
-    "LOOSE_ISO": {
-        # Set this to (15, 15) if you want to reproduce the older notebook/control plot.
-        "ptcone_max": 15.0,
-        "etcone_max": 15.0,
-    },
+    # Isolation working points for the control study.
+    # These defaults reproduce the older working point requested in the task.
+    "NOMINAL_ISO": {"ptcone_max": 9.0, "etcone_max": 6.0},
+    "LOOSE_ISO": {"ptcone_max": 15.0, "etcone_max": 15.0},
     "REQUIRE_BOTH_ISO": True,
 
-    # Signal-region mass window used for the sigma study
+    # Signal-region mass window used for the sigma study.
     "MASS_WINDOW": tuple(SETTINGS["MASS_WINDOW"]),
 
-    # Toy FSR proxy model
+    # Toy FSR proxy model.
     "FSR": {
-        # Only apply the correction to events below this *raw* mass.
         "APPLY_BELOW_MASS": 80.0,
-        # Scale factor for topoetcone20 -> recovered photon pT.
         "ETCONE_SCALE": 1.0,
-        # Compare two toy modes:
-        #   maxcone: add to the muon with the larger topoetcone20 only
-        #   both:    add to both muons
         "MODES": ("maxcone", "both"),
     },
 
-    # Sigma scan around the nominal point (MC-only background subtraction; no extra DD term).
+    # Sigma scan around the nominal point (MC-only background subtraction).
     "SCAN": {
         "RUN": True,
         "MODE": "local_box",
@@ -114,7 +104,7 @@ FSR_SETTINGS = {
         "LOCAL_BOX_ETCONE_HALF_WIDTH": 2.0,
     },
 
-    # Plots / outputs
+    # Plots / outputs.
     "OUTPUT_DIR": "output_fsr",
     "SAVE_PLOTS": True,
     "MASS_PLOT": {
@@ -125,8 +115,254 @@ FSR_SETTINGS = {
 }
 
 
+@dataclass(frozen=True)
+class IsoWorkingPoint:
+    ptcone_max: float
+    etcone_max: float
+
+
+@dataclass(frozen=True)
+class PlotConfig:
+    xmin: float
+    xmax: float
+    bins: int
+    logy: bool
+
+
+@dataclass(frozen=True)
+class ScanConfig:
+    run: bool
+    mode: str
+    ptcone_range: tuple[float, float]
+    ptcone_step: float
+    etcone_range: tuple[float, float]
+    etcone_step: float
+    local_box_ptcone_half_width: float
+    local_box_etcone_half_width: float
+
+
+@dataclass(frozen=True)
+class FSRStudyConfig:
+    lepton: str
+    build_fraction: float
+    read_fraction: float
+    force_rebuild: bool
+    root_dir: str
+    pt_min: float
+    apply_medium_id: bool
+    nominal_iso: IsoWorkingPoint
+    loose_iso: IsoWorkingPoint
+    require_both_iso: bool
+    mass_window: tuple[float, float]
+    fsr_apply_below_mass: float
+    fsr_etcone_scale: float
+    fsr_modes: tuple[str, ...]
+    scan: ScanConfig
+    output_dir: str
+    save_plots: bool
+    mass_plots: dict[str, PlotConfig]
+    windows: tuple[tuple[float, float], ...]
+
+
+@dataclass(frozen=True)
+class FSRSample:
+    sample_code: str
+    subdir_name: str
+    subdir_path: Path
+    plot_label: str
+    yield_category: str
+    is_primary_signal: bool
+
+
+@dataclass(frozen=True)
+class PlotSpec:
+    selection_name: str
+    mass_field: str
+    plot_config: PlotConfig
+    title: str
+
+
+@dataclass(frozen=True)
+class ScanStudySpec:
+    mass_field: str
+    etcone_metric_key: str
+    title: str
+
+
+@dataclass(frozen=True)
+class ScanGrid:
+    points: tuple[tuple[float, float], ...]
+    pt_thresholds: tuple[float, ...]
+    et_thresholds: tuple[float, ...]
+
+
+@dataclass
+class FSRChunkView:
+    mass_raw: np.ndarray
+    mass_fsr_maxcone: np.ndarray
+    mass_fsr_both: np.ndarray
+    ptcone_metric: np.ndarray
+    etcone_metric_raw: np.ndarray
+    etcone_metric_fsrsub_maxcone: np.ndarray
+    weights: np.ndarray
+
+
+@dataclass
+class YieldSummary:
+    data: float = 0.0
+    signal: float = 0.0
+    background: float = 0.0
+
+    def add(self, sample: FSRSample, mask: np.ndarray, weights: np.ndarray) -> None:
+        if mask.size == 0 or not np.any(mask):
+            return
+
+        if sample.yield_category == "data":
+            self.data += float(np.count_nonzero(mask))
+            return
+
+        selected_weights = weights[mask]
+        if sample.yield_category == "signal":
+            self.signal += float(np.sum(selected_weights))
+            return
+
+        self.background += float(np.sum(selected_weights))
+
+    def as_dict(self) -> dict[str, float]:
+        total_mc = self.signal + self.background
+        return {
+            "Data": float(self.data),
+            "Signal": float(self.signal),
+            "Background": float(self.background),
+            "Data_minus_MC": float(self.data - total_mc),
+        }
+
+
+@dataclass
+class HistogramAccumulator:
+    edges: np.ndarray
+    counts_by_label: dict[str, np.ndarray]
+    variances_by_label: dict[str, np.ndarray]
+
+    @classmethod
+    def from_plot_config(cls, plot_config: PlotConfig, labels: list[str]) -> "HistogramAccumulator":
+        edges = np.linspace(plot_config.xmin, plot_config.xmax, plot_config.bins + 1, dtype=float)
+        return cls(
+            edges=edges,
+            counts_by_label={label: np.zeros(plot_config.bins, dtype=float) for label in labels},
+            variances_by_label={label: np.zeros(plot_config.bins, dtype=float) for label in labels},
+        )
+
+    def fill(self, label: str, values: np.ndarray, weights: np.ndarray) -> None:
+        if values.size == 0:
+            return
+
+        self.counts_by_label[label] += np.histogram(values, bins=self.edges, weights=weights)[0]
+        self.variances_by_label[label] += np.histogram(values, bins=self.edges, weights=np.square(weights))[0]
+
+
+@dataclass
+class SigmaStudyAccumulator:
+    spec: ScanStudySpec
+    data_counts: np.ndarray
+    background_weights: np.ndarray
+    background_vars: np.ndarray
+    signal_weights: np.ndarray
+
+    @classmethod
+    def create(cls, spec: ScanStudySpec, n_points: int) -> "SigmaStudyAccumulator":
+        zeros = np.zeros(n_points, dtype=float)
+        return cls(
+            spec=spec,
+            data_counts=zeros.copy(),
+            background_weights=zeros.copy(),
+            background_vars=zeros.copy(),
+            signal_weights=zeros.copy(),
+        )
+
+
+WINDOW_MASS_FIELDS = ("mass_raw", "mass_fsr_maxcone", "mass_fsr_both")
+SCAN_STUDIES = {
+    "raw": ScanStudySpec(
+        mass_field="mass_raw",
+        etcone_metric_key="etcone_metric_raw",
+        title="sigma (raw mass, raw etcone)",
+    ),
+    "masscorr_maxcone": ScanStudySpec(
+        mass_field="mass_fsr_maxcone",
+        etcone_metric_key="etcone_metric_raw",
+        title="sigma (mass corrected: maxcone)",
+    ),
+    "masscorr_both": ScanStudySpec(
+        mass_field="mass_fsr_both",
+        etcone_metric_key="etcone_metric_raw",
+        title="sigma (mass corrected: both)",
+    ),
+    "masscorr_etsub_maxcone": ScanStudySpec(
+        mass_field="mass_fsr_maxcone",
+        etcone_metric_key="etcone_metric_fsrsub_maxcone",
+        title="sigma (mass corrected + etcone-subtracted: maxcone)",
+    ),
+}
+
+
+def resolve_fsr_config() -> FSRStudyConfig:
+    lepton = str(FSR_SETTINGS["LEPTON"]).strip().lower()
+    if lepton != "mu":
+        raise ValueError("This focused FSR study is currently implemented for the muon channel only.")
+
+    fsr_modes = tuple(str(mode) for mode in FSR_SETTINGS["FSR"]["MODES"])
+    if set(fsr_modes) != {"maxcone", "both"}:
+        raise ValueError("FSR_SETTINGS['FSR']['MODES'] must contain exactly ('maxcone', 'both') for this workflow.")
+
+    return FSRStudyConfig(
+        lepton=lepton,
+        build_fraction=float(FSR_SETTINGS["BUILD_FRACTION"]),
+        read_fraction=float(FSR_SETTINGS["READ_FRACTION"]),
+        force_rebuild=bool(FSR_SETTINGS["FORCE_REBUILD"]),
+        root_dir=str(FSR_SETTINGS["ROOT_DIR"]),
+        pt_min=float(FSR_SETTINGS["PT_MIN"]),
+        apply_medium_id=bool(FSR_SETTINGS["APPLY_MEDIUM_ID"]),
+        nominal_iso=IsoWorkingPoint(
+            ptcone_max=float(FSR_SETTINGS["NOMINAL_ISO"]["ptcone_max"]),
+            etcone_max=float(FSR_SETTINGS["NOMINAL_ISO"]["etcone_max"]),
+        ),
+        loose_iso=IsoWorkingPoint(
+            ptcone_max=float(FSR_SETTINGS["LOOSE_ISO"]["ptcone_max"]),
+            etcone_max=float(FSR_SETTINGS["LOOSE_ISO"]["etcone_max"]),
+        ),
+        require_both_iso=bool(FSR_SETTINGS["REQUIRE_BOTH_ISO"]),
+        mass_window=tuple(float(edge) for edge in FSR_SETTINGS["MASS_WINDOW"]),
+        fsr_apply_below_mass=float(FSR_SETTINGS["FSR"]["APPLY_BELOW_MASS"]),
+        fsr_etcone_scale=float(FSR_SETTINGS["FSR"]["ETCONE_SCALE"]),
+        fsr_modes=fsr_modes,
+        scan=ScanConfig(
+            run=bool(FSR_SETTINGS["SCAN"]["RUN"]),
+            mode=str(FSR_SETTINGS["SCAN"]["MODE"]),
+            ptcone_range=tuple(float(edge) for edge in FSR_SETTINGS["SCAN"]["PTCONE_RANGE"]),
+            ptcone_step=float(FSR_SETTINGS["SCAN"]["PTCONE_STEP"]),
+            etcone_range=tuple(float(edge) for edge in FSR_SETTINGS["SCAN"]["ETCONE_RANGE"]),
+            etcone_step=float(FSR_SETTINGS["SCAN"]["ETCONE_STEP"]),
+            local_box_ptcone_half_width=float(FSR_SETTINGS["SCAN"]["LOCAL_BOX_PTCONE_HALF_WIDTH"]),
+            local_box_etcone_half_width=float(FSR_SETTINGS["SCAN"]["LOCAL_BOX_ETCONE_HALF_WIDTH"]),
+        ),
+        output_dir=str(FSR_SETTINGS["OUTPUT_DIR"]),
+        save_plots=bool(FSR_SETTINGS["SAVE_PLOTS"]),
+        mass_plots={
+            name: PlotConfig(
+                xmin=float(plot_cfg["xmin"]),
+                xmax=float(plot_cfg["xmax"]),
+                bins=int(plot_cfg["bins"]),
+                logy=bool(plot_cfg["logy"]),
+            )
+            for name, plot_cfg in FSR_SETTINGS["MASS_PLOT"].items()
+        },
+        windows=tuple(tuple(float(edge) for edge in window) for window in FSR_SETTINGS["WINDOWS"]),
+    )
+
+
 def _fsr_keep_fields() -> list[str]:
-    keep = [
+    return [
         "lep_pt",
         "lep_eta",
         "lep_phi",
@@ -138,15 +374,14 @@ def _fsr_keep_fields() -> list[str]:
         "mass",
         "charge_product",
     ]
-    return keep
 
 
-def _fsr_root(lepton: str) -> Path:
-    base = (SCRIPT_DIR / FSR_SETTINGS["ROOT_DIR"]).resolve()
+def _fsr_root(config: FSRStudyConfig) -> Path:
+    base = (SCRIPT_DIR / config.root_dir).resolve()
     tag = (
-        f"{lepton}_fsrstudy"
-        f"_pt{FSR_SETTINGS['PT_MIN']:.1f}"
-        f"_mid_{'on' if FSR_SETTINGS['APPLY_MEDIUM_ID'] else 'off'}"
+        f"{config.lepton}_fsrstudy"
+        f"_pt{config.pt_min:.1f}"
+        f"_mid_{'on' if config.apply_medium_id else 'off'}"
     ).replace(".", "p")
     return base / tag
 
@@ -156,15 +391,15 @@ def _fsr_manifest_path(root: Path) -> Path:
 
 
 def _fsr_build_cut(
+    *,
+    config: FSRStudyConfig,
     lepton: str,
     apply_medium_id: bool,
     medium_field: str | None,
     required_input_fields: list[str] | None = None,
 ):
-    # Keep the final physics fields *and* the raw fields needed by the build-time
-    # preselection.  The backend parquet builder may re-apply the cut function on
-    # already-written chunks; if lep_n / trig / Medium-ID fields are dropped too
-    # early, baseline_main_preselection will crash on that second pass.
+    # Keep the final physics fields and the raw fields still needed by
+    # baseline_main_preselection during the parquet-writing stage.
     keep = _fsr_keep_fields()
     for field in required_input_fields or []:
         if field not in keep:
@@ -174,7 +409,7 @@ def _fsr_build_cut(
         selected = baseline_main_preselection(
             events,
             lepton=lepton,
-            pt_min=float(FSR_SETTINGS["PT_MIN"]),
+            pt_min=config.pt_min,
             apply_medium_id=apply_medium_id,
             medium_field=medium_field,
         )
@@ -183,29 +418,25 @@ def _fsr_build_cut(
     return cut_function
 
 
-def ensure_fsr_tight_parquet(lepton: str, backend: dict) -> Path:
-    root = _fsr_root(lepton)
-    if root.exists() and manifest_complete(root) and not FSR_SETTINGS["FORCE_REBUILD"]:
-        log_step(f"[{lepton}] Reusing FSR tight parquet")
+def ensure_fsr_tight_parquet(config: FSRStudyConfig, backend: dict) -> Path:
+    root = _fsr_root(config)
+    if root.exists() and manifest_complete(root) and not config.force_rebuild:
+        log_step(f"[{config.lepton}] Reusing FSR tight parquet")
         return root
 
-    log_step(f"[{lepton}] Building FSR tight parquet")
+    log_step(f"[{config.lepton}] Building FSR tight parquet")
     reset_root_for_rebuild(root)
 
-    build_fraction = float(FSR_SETTINGS["BUILD_FRACTION"])
     sample_rows: list[dict] = []
     subdirs: list[str] = []
 
-    for sample_code in progress_iter(
-        CHANNELS[lepton]["string_codes"],
-        total=len(CHANNELS[lepton]["string_codes"]),
-        desc=f"{lepton} fsr parquet",
-        unit="sample",
-    ):
+    sample_codes = CHANNELS[config.lepton]["string_codes"]
+    iterator = progress_iter(sample_codes, total=len(sample_codes), desc=f"{config.lepton} fsr parquet", unit="sample")
+    for sample_code in iterator:
         raw_fields = set(available_raw_fields(sample_code, backend))
         medium_field = choose_medium_field(sample_code, backend)
         apply_medium_id, reason = should_apply_medium_id(sample_code, medium_field)
-        if not FSR_SETTINGS["APPLY_MEDIUM_ID"]:
+        if not config.apply_medium_id:
             apply_medium_id = False
             reason = "disabled_in_fsr_settings"
 
@@ -234,13 +465,14 @@ def ensure_fsr_tight_parquet(lepton: str, backend: dict) -> Path:
             root=root,
             read_vars=needed_raw,
             cut_function=_fsr_build_cut(
-                lepton=lepton,
+                config=config,
+                lepton=config.lepton,
                 apply_medium_id=apply_medium_id,
                 medium_field=medium_field,
                 required_input_fields=needed_raw,
             ),
             backend=backend,
-            fraction=build_fraction,
+            fraction=config.build_fraction,
         )
         sample_rows.append(
             {
@@ -258,12 +490,12 @@ def ensure_fsr_tight_parquet(lepton: str, backend: dict) -> Path:
     manifest = {
         "complete": True,
         "kind": "fsr_main",
-        "channel": lepton,
+        "channel": config.lepton,
         "created_at": now_stamp(),
         "settings": {
-            "PT_MIN": FSR_SETTINGS["PT_MIN"],
-            "BUILD_FRACTION": build_fraction,
-            "APPLY_MEDIUM_ID": FSR_SETTINGS["APPLY_MEDIUM_ID"],
+            "PT_MIN": config.pt_min,
+            "BUILD_FRACTION": config.build_fraction,
+            "APPLY_MEDIUM_ID": config.apply_medium_id,
             "KEEP_FIELDS": _fsr_keep_fields(),
         },
         "subdirs": subdirs,
@@ -273,420 +505,507 @@ def ensure_fsr_tight_parquet(lepton: str, backend: dict) -> Path:
     return root
 
 
-def load_fsr_events(lepton: str, sign: str, backend: dict) -> dict:
-    root = ensure_fsr_tight_parquet(lepton, backend)
-    manifest = read_manifest(root)
-    if manifest is None:
-        raise RuntimeError(f"Missing manifest under {root}")
-
-    needed = _fsr_keep_fields() + ["weight", "totalWeight"]
-    return load_tight_subdirs(
-        root=root,
-        subdirs=manifest["subdirs"],
-        needed_fields=needed,
-        backend=backend,
-        fraction=float(FSR_SETTINGS["READ_FRACTION"]),
-        cut_function=make_sign_cut(sign),
-    )
-
-
-def build_plot_dict_for_fsr(events_by_sample: dict, lepton: str) -> dict:
-    """
-    Keep the low-mass Drell-Yan sample as a background label so that the sigma calculation
-    and the stacked plots tell the same story.
-    """
+def _plot_label_for_sample(sample_code: str, lepton: str) -> str:
     channel = CHANNELS[lepton]
-    plot_dict: dict[str, ak.Array | None] = {}
+    if sample_code == "2to4lep":
+        return "Data"
+    if sample_code == channel["primary_signal"]:
+        return f"Signal {sample_code}"
+    return f"Background {sample_code}"
 
-    data_key = get_sample_key_by_prefix(events_by_sample, "2to4lep")
-    plot_dict["Data"] = events_by_sample.get(data_key) if data_key else None
 
-    primary_signal = channel["primary_signal"]
-    primary_key = get_sample_key_by_prefix(events_by_sample, primary_signal)
-    plot_dict[f"Signal {primary_signal}"] = events_by_sample.get(primary_key) if primary_key else None
+def _yield_category_for_sample(sample_code: str, lepton: str) -> str:
+    if sample_code == "2to4lep":
+        return "data"
+    if sample_code == CHANNELS[lepton]["primary_signal"]:
+        return "signal"
+    return "background"
 
-    for sample_code in channel["signal_samples"]:
-        if sample_code == primary_signal:
+
+def ordered_plot_labels(lepton: str) -> list[str]:
+    channel = CHANNELS[lepton]
+    labels = ["Data", f"Signal {channel['primary_signal']}"]
+    labels.extend(f"Background {sample_code}" for sample_code in channel["signal_samples"] if sample_code != channel["primary_signal"])
+    labels.extend(f"Background {sample_code}" for sample_code in channel["background_samples"])
+    return labels
+
+
+def resolve_fsr_samples(root: Path, manifest: dict, lepton: str) -> list[FSRSample]:
+    relevant_samples = list(CHANNELS[lepton]["string_codes"])
+    subdir_to_sample = {}
+    for row in manifest.get("samples", []):
+        if row.get("output_subdir") and row.get("sample"):
+            subdir_to_sample[str(row["output_subdir"])] = str(row["sample"])
+
+    samples: list[FSRSample] = []
+    for subdir_name in manifest.get("subdirs", []):
+        sample_code = subdir_to_sample.get(subdir_name)
+        if sample_code is None:
+            sample_code = infer_sample_code_from_name(subdir_name, relevant_samples)
+        if sample_code is None or sample_code not in relevant_samples:
             continue
-        sample_key = get_sample_key_by_prefix(events_by_sample, sample_code)
-        plot_dict[f"Background {sample_code}"] = events_by_sample.get(sample_key) if sample_key else None
-
-    for sample_code in channel["background_samples"]:
-        sample_key = get_sample_key_by_prefix(events_by_sample, sample_code)
-        plot_dict[f"Background {sample_code}"] = events_by_sample.get(sample_key) if sample_key else None
-
-    return plot_dict
-
-
-def add_alias_fields(events: ak.Array | None) -> ak.Array | None:
-    if events is None:
-        return None
-    out = events
-    if "mass_raw" not in out.fields:
-        out = ak.with_field(out, out["mass"], "mass_raw")
-    return out
+        samples.append(
+            FSRSample(
+                sample_code=sample_code,
+                subdir_name=subdir_name,
+                subdir_path=root / subdir_name,
+                plot_label=_plot_label_for_sample(sample_code, lepton),
+                yield_category=_yield_category_for_sample(sample_code, lepton),
+                is_primary_signal=(sample_code == CHANNELS[lepton]["primary_signal"]),
+            )
+        )
+    return samples
 
 
-def _make_p4(pt: ak.Array, eta: ak.Array, phi: ak.Array, energy: ak.Array):
-    return vector.zip({"pt": pt, "eta": eta, "phi": phi, "E": energy})
+def _required_fsr_read_columns(file_fields: set[str]) -> list[str]:
+    required = [field for field in _fsr_keep_fields() if field in file_fields]
+    for field in ("weight", "totalWeight"):
+        if field in file_fields and field not in required:
+            required.append(field)
+    return required
 
 
-def add_fsr_proxy_fields(events: ak.Array | None) -> ak.Array | None:
-    if events is None:
-        return None
-
-    out = add_alias_fields(events)
-
-    raw_mass = out["mass_raw"]
-    etcone = out["lep_topoetcone20"]
-    eta = out["lep_eta"]
-    phi = out["lep_phi"]
-    pt = out["lep_pt"]
-    energy = out["lep_e"]
-
-    apply_below = float(FSR_SETTINGS["FSR"]["APPLY_BELOW_MASS"])
-    scale = float(FSR_SETTINGS["FSR"]["ETCONE_SCALE"])
-
-    event_mask = raw_mass < apply_below
-    event_mask_broadcast, _ = ak.broadcast_arrays(event_mask, pt)
-    local_index = ak.local_index(etcone, axis=1)
-    max_index = ak.argmax(etcone, axis=1, keepdims=True)
-
-    for mode in FSR_SETTINGS["FSR"]["MODES"]:
-        if mode == "both":
-            dpt = scale * etcone
-        elif mode == "maxcone":
-            dpt = ak.where(local_index == max_index, scale * etcone, 0.0)
+def _count_subdir_events_for_fraction(subdir: Path) -> float:
+    total = 0.0
+    for parquet_file in sorted(subdir.rglob("*.parquet")):
+        parquet_handle = pq.ParquetFile(parquet_file)
+        file_fields = set(parquet_handle.schema_arrow.names)
+        if "totalWeight" in file_fields:
+            weights = ak.from_parquet(str(parquet_file), columns=["totalWeight"])["totalWeight"]
+            total += float(ak.sum(weights))
         else:
-            raise ValueError(f"Unsupported FSR mode: {mode!r}")
-
-        dpt = ak.where(event_mask_broadcast, dpt, 0.0)
-        dE = dpt * np.cosh(eta)
-
-        pt_corr = pt + dpt
-        energy_corr = energy + dE
-
-        p4_corr = _make_p4(pt_corr, eta, phi, energy_corr)
-        mass_corr = (p4_corr[:, 0] + p4_corr[:, 1]).M
-        delta_mass = mass_corr - raw_mass
-        etcone_sub = ak.where(event_mask_broadcast, np.maximum(etcone - dpt, 0.0), etcone)
-
-        out = ak.with_field(out, mass_corr, f"mass_fsr_{mode}")
-        out = ak.with_field(out, delta_mass, f"delta_mass_fsr_{mode}")
-        out = ak.with_field(out, etcone_sub, f"lep_topoetcone20_fsrsub_{mode}")
-
-    return out
+            total += float(parquet_handle.metadata.num_rows)
+    return total
 
 
-def enrich_plot_dict_with_fsr(plot_dict: dict) -> dict:
-    return {label: add_fsr_proxy_fields(events) for label, events in plot_dict.items()}
+def _truncate_chunk_to_budget(chunk: ak.Array, remaining_budget: float | None) -> tuple[ak.Array, float | None]:
+    if remaining_budget is None or len(chunk) == 0:
+        return chunk, remaining_budget
+
+    if remaining_budget <= 0:
+        return chunk[:0], 0.0
+
+    field = weight_field(chunk)
+    if field is None:
+        if len(chunk) <= remaining_budget:
+            return chunk, remaining_budget - float(len(chunk))
+        cutoff = int(max(np.floor(remaining_budget), 0.0))
+        return chunk[:cutoff], 0.0
+
+    weights = np.asarray(ak.to_numpy(chunk[field]), dtype=float)
+    used_budget = float(np.sum(weights))
+    if used_budget <= remaining_budget:
+        return chunk, remaining_budget - used_budget
+
+    cumulative = np.cumsum(weights)
+    cutoff = int(np.searchsorted(cumulative, remaining_budget, side="left")) + 1
+    cutoff = min(cutoff, len(chunk))
+    used_budget = float(np.sum(weights[:cutoff]))
+    return chunk[:cutoff], max(remaining_budget - used_budget, 0.0)
 
 
-def _both_or_leading_metric(events: ak.Array, field: str, require_both: bool) -> ak.Array:
-    values = events[field]
+def _ensure_charge_product(chunk: ak.Array) -> ak.Array:
+    if "charge_product" in chunk.fields:
+        return chunk
+    return ak.with_field(chunk, chunk["lep_charge"][:, 0] * chunk["lep_charge"][:, 1], "charge_product")
+
+
+def iterate_fsr_chunks(config: FSRStudyConfig, samples: list[FSRSample]):
+    iterator = progress_iter(samples, total=len(samples), desc=f"{config.lepton} fsr study", unit="sample")
+    for sample in iterator:
+        remaining_budget: float | None = None
+        if config.read_fraction < 1.0:
+            total_budget = _count_subdir_events_for_fraction(sample.subdir_path)
+            remaining_budget = total_budget * config.read_fraction
+
+        for parquet_file in sorted(sample.subdir_path.rglob("*.parquet")):
+            if remaining_budget is not None and remaining_budget <= 0:
+                break
+
+            parquet_handle = pq.ParquetFile(parquet_file)
+            file_fields = set(parquet_handle.schema_arrow.names)
+            missing = set(_fsr_keep_fields()) - file_fields
+            if missing:
+                raise KeyError(f"Missing required FSR fields in {parquet_file}: {sorted(missing)}")
+
+            columns = _required_fsr_read_columns(file_fields)
+            for row_group in range(parquet_handle.num_row_groups):
+                if remaining_budget is not None and remaining_budget <= 0:
+                    break
+
+                table = parquet_handle.read_row_group(row_group, columns=columns)
+                if table.num_rows == 0:
+                    continue
+
+                chunk = ak.from_arrow(table)
+                chunk, remaining_budget = _truncate_chunk_to_budget(chunk, remaining_budget)
+                if len(chunk) == 0:
+                    continue
+
+                chunk = _ensure_charge_product(chunk)
+                chunk = chunk[chunk["charge_product"] < 0]
+                if len(chunk) == 0:
+                    continue
+
+                yield sample, chunk
+
+
+def _to_numpy(values: ak.Array) -> np.ndarray:
+    return np.asarray(ak.to_numpy(values), dtype=float)
+
+
+def _corrected_mass_from_dpt(
+    pt: np.ndarray,
+    eta: np.ndarray,
+    phi: np.ndarray,
+    energy: np.ndarray,
+    dpt: np.ndarray,
+) -> np.ndarray:
+    pt_corr = pt + dpt
+    energy_corr = energy + dpt * np.cosh(eta)
+
+    px = pt_corr * np.cos(phi)
+    py = pt_corr * np.sin(phi)
+    pz = pt_corr * np.sinh(eta)
+
+    total_energy = np.sum(energy_corr, axis=1)
+    total_px = np.sum(px, axis=1)
+    total_py = np.sum(py, axis=1)
+    total_pz = np.sum(pz, axis=1)
+
+    mass_squared = total_energy**2 - total_px**2 - total_py**2 - total_pz**2
+    return np.sqrt(np.clip(mass_squared, 0.0, None))
+
+
+def _leading_or_both_metric(values: np.ndarray, require_both: bool) -> np.ndarray:
     if require_both:
-        return ak.max(values, axis=1)
+        return np.max(values, axis=1)
     return values[:, 0]
 
 
-def select_events(
-    events: ak.Array | None,
-    *,
-    mass_window: tuple[float, float] | None = None,
-    ptcone_max: float | None = None,
-    etcone_max: float | None = None,
-    require_both: bool = True,
-    mass_field: str = "mass_raw",
-    ptcone_field: str = "lep_ptvarcone30",
-    etcone_field: str = "lep_topoetcone20",
-) -> ak.Array | None:
-    if events is None:
-        return None
+def add_fsr_proxy_fields_chunk(chunk: ak.Array, config: FSRStudyConfig) -> FSRChunkView:
+    raw_mass = _to_numpy(chunk["mass"])
+    pt = _to_numpy(chunk["lep_pt"])
+    eta = _to_numpy(chunk["lep_eta"])
+    phi = _to_numpy(chunk["lep_phi"])
+    energy = _to_numpy(chunk["lep_e"])
+    ptcone = _to_numpy(chunk["lep_ptvarcone30"])
+    etcone = _to_numpy(chunk["lep_topoetcone20"])
 
-    if mass_field not in events.fields:
-        raise KeyError(f"Missing mass field {mass_field!r}")
-    if ptcone_field not in events.fields:
-        raise KeyError(f"Missing ptcone field {ptcone_field!r}")
-    if etcone_field not in events.fields:
-        raise KeyError(f"Missing etcone field {etcone_field!r}")
+    event_mask = raw_mass < config.fsr_apply_below_mass
+    scaled_etcone = config.fsr_etcone_scale * etcone
 
-    mask = ak.Array(np.ones(len(events), dtype=bool))
+    dpt_maxcone = np.zeros_like(etcone)
+    if raw_mass.size:
+        max_indices = np.argmax(etcone, axis=1)
+        dpt_maxcone[np.arange(raw_mass.size), max_indices] = scaled_etcone[np.arange(raw_mass.size), max_indices]
+    dpt_maxcone = np.where(event_mask[:, None], dpt_maxcone, 0.0)
 
-    if mass_window is not None:
-        lo, hi = mass_window
-        mask = mask & (events[mass_field] > float(lo)) & (events[mass_field] < float(hi))
+    dpt_both = np.where(event_mask[:, None], scaled_etcone, 0.0)
 
-    if ptcone_max is not None:
-        pt_metric = _both_or_leading_metric(events, ptcone_field, require_both)
-        mask = mask & (pt_metric < float(ptcone_max))
+    mass_fsr_maxcone = _corrected_mass_from_dpt(pt, eta, phi, energy, dpt_maxcone)
+    mass_fsr_both = _corrected_mass_from_dpt(pt, eta, phi, energy, dpt_both)
+    etcone_sub_maxcone = np.maximum(etcone - dpt_maxcone, 0.0)
 
-    if etcone_max is not None:
-        et_metric = _both_or_leading_metric(events, etcone_field, require_both)
-        mask = mask & (et_metric < float(etcone_max))
+    weights = np.ones(raw_mass.size, dtype=float)
+    field = weight_field(chunk)
+    if field is not None:
+        weights = _to_numpy(chunk[field])
 
-    return events[mask]
-
-
-def select_plot_dict(
-    plot_dict: dict,
-    *,
-    mass_window: tuple[float, float] | None = None,
-    ptcone_max: float | None = None,
-    etcone_max: float | None = None,
-    require_both: bool = True,
-    mass_field: str = "mass_raw",
-    ptcone_field: str = "lep_ptvarcone30",
-    etcone_field: str = "lep_topoetcone20",
-) -> dict:
-    return {
-        label: select_events(
-            events,
-            mass_window=mass_window,
-            ptcone_max=ptcone_max,
-            etcone_max=etcone_max,
-            require_both=require_both,
-            mass_field=mass_field,
-            ptcone_field=ptcone_field,
-            etcone_field=etcone_field,
-        )
-        for label, events in plot_dict.items()
-    }
-
-
-def select_between_nominal_and_loose(
-    plot_dict: dict,
-    *,
-    nominal_ptcone: float,
-    nominal_etcone: float,
-    loose_ptcone: float,
-    loose_etcone: float,
-    require_both: bool,
-    mass_field: str = "mass_raw",
-    ptcone_field: str = "lep_ptvarcone30",
-    etcone_field: str = "lep_topoetcone20",
-) -> dict:
-    selected: dict[str, ak.Array | None] = {}
-    for label, events in plot_dict.items():
-        if events is None:
-            selected[label] = None
-            continue
-
-        # Build both masks from the original events so the event bookkeeping stays trivial.
-        pass_nominal_mask = selection_mask(
-            events,
-            ptcone_max=nominal_ptcone,
-            etcone_max=nominal_etcone,
-            require_both=require_both,
-            mass_field=mass_field,
-            ptcone_field=ptcone_field,
-            etcone_field=etcone_field,
-        )
-        pass_loose_mask = selection_mask(
-            events,
-            ptcone_max=loose_ptcone,
-            etcone_max=loose_etcone,
-            require_both=require_both,
-            mass_field=mass_field,
-            ptcone_field=ptcone_field,
-            etcone_field=etcone_field,
-        )
-        selected[label] = events[(~pass_nominal_mask) & pass_loose_mask]
-    return selected
-
-
-def selection_mask(
-    events: ak.Array,
-    *,
-    mass_window: tuple[float, float] | None = None,
-    ptcone_max: float | None = None,
-    etcone_max: float | None = None,
-    require_both: bool = True,
-    mass_field: str = "mass_raw",
-    ptcone_field: str = "lep_ptvarcone30",
-    etcone_field: str = "lep_topoetcone20",
-) -> ak.Array:
-    mask = ak.Array(np.ones(len(events), dtype=bool))
-    if mass_window is not None:
-        lo, hi = mass_window
-        mask = mask & (events[mass_field] > float(lo)) & (events[mass_field] < float(hi))
-    if ptcone_max is not None:
-        pt_metric = _both_or_leading_metric(events, ptcone_field, require_both)
-        mask = mask & (pt_metric < float(ptcone_max))
-    if etcone_max is not None:
-        et_metric = _both_or_leading_metric(events, etcone_field, require_both)
-        mask = mask & (et_metric < float(etcone_max))
-    return mask
-
-
-def _color_list(plot_dict: dict) -> list[str]:
-    palette = ["k", "b", "olive", "g", "r", "m", "c", "orange"]
-    return palette[: len(plot_dict)]
-
-
-def save_stacked_mass_plot(
-    *,
-    backend: dict,
-    plot_dict: dict,
-    mass_field: str,
-    output_path: Path,
-    title: str,
-    xmin: float,
-    xmax: float,
-    bins: int,
-    logy: bool,
-) -> None:
-    figure, _ = backend["plot_stacked_hist"](
-        plot_dict,
-        mass_field,
-        _color_list(plot_dict),
-        bins,
-        xmin,
-        xmax,
-        title,
-        logy=logy,
-        show_text=True,
-        residual_plot=True,
-        save_fig=False,
+    return FSRChunkView(
+        mass_raw=raw_mass,
+        mass_fsr_maxcone=mass_fsr_maxcone,
+        mass_fsr_both=mass_fsr_both,
+        ptcone_metric=_leading_or_both_metric(ptcone, config.require_both_iso),
+        etcone_metric_raw=_leading_or_both_metric(etcone, config.require_both_iso),
+        etcone_metric_fsrsub_maxcone=_leading_or_both_metric(etcone_sub_maxcone, config.require_both_iso),
+        weights=weights,
     )
-    if FSR_SETTINGS["SAVE_PLOTS"]:
-        save_fig(figure, output_path)
 
 
-def summarize_plot_dict(plot_dict: dict) -> dict[str, float]:
-    n_data = yield_data(plot_dict.get("Data"))
-    n_signal = 0.0
-    n_background = 0.0
-    for label, events in plot_dict.items():
-        if label == "Data":
-            continue
-        if label.startswith("Signal"):
-            n_signal += yield_mc(events)
-        else:
-            n_background += yield_mc(events)
+def build_chunk_selection_masks(chunk_view: FSRChunkView, config: FSRStudyConfig) -> dict[str, np.ndarray]:
+    pass_nominal = (
+        (chunk_view.ptcone_metric < config.nominal_iso.ptcone_max)
+        & (chunk_view.etcone_metric_raw < config.nominal_iso.etcone_max)
+    )
+    pass_loose = (
+        (chunk_view.ptcone_metric < config.loose_iso.ptcone_max)
+        & (chunk_view.etcone_metric_raw < config.loose_iso.etcone_max)
+    )
     return {
-        "Data": n_data,
-        "Signal": n_signal,
-        "Background": n_background,
-        "Data_minus_MC": n_data - (n_signal + n_background),
+        "pass_nominal": pass_nominal,
+        "pass_loose": pass_loose,
+        "between": (~pass_nominal) & pass_loose,
     }
 
 
-def build_mass_window_table(plot_dict: dict, mass_field: str) -> pd.DataFrame:
-    rows = []
-    for low, high in FSR_SETTINGS["WINDOWS"]:
-        selected = select_plot_dict(plot_dict, mass_window=(low, high), mass_field=mass_field)
-        summary = summarize_plot_dict(selected)
-        rows.append(
-            {
-                "mass_field": mass_field,
-                "window": f"{low:.0f}-{high:.0f}",
-                **summary,
-            }
+def build_plot_specs(config: FSRStudyConfig) -> dict[str, PlotSpec]:
+    nominal = config.nominal_iso
+    loose = config.loose_iso
+    return {
+        "between_raw_full": PlotSpec(
+            selection_name="between",
+            mass_field="mass_raw",
+            plot_config=config.mass_plots["FULL"],
+            title=(
+                f"OS dimuon: fail nominal ({nominal.ptcone_max:.2f},{nominal.etcone_max:.2f}) "
+                f"but pass loose ({loose.ptcone_max:.2f},{loose.etcone_max:.2f}) [raw mass]"
+            ),
+        ),
+        "between_fsr_maxcone_full": PlotSpec(
+            selection_name="between",
+            mass_field="mass_fsr_maxcone",
+            plot_config=config.mass_plots["FULL"],
+            title="Same control sample with toy FSR recovery [maxcone mode]",
+        ),
+        "between_fsr_both_full": PlotSpec(
+            selection_name="between",
+            mass_field="mass_fsr_both",
+            plot_config=config.mass_plots["FULL"],
+            title="Same control sample with toy FSR recovery [both-muons mode]",
+        ),
+        "between_raw_zoom": PlotSpec(
+            selection_name="between",
+            mass_field="mass_raw",
+            plot_config=config.mass_plots["ZOOM"],
+            title="Control sample near Z peak [raw mass]",
+        ),
+        "between_fsr_maxcone_zoom": PlotSpec(
+            selection_name="between",
+            mass_field="mass_fsr_maxcone",
+            plot_config=config.mass_plots["ZOOM"],
+            title="Control sample near Z peak [FSR recovery: maxcone]",
+        ),
+        "between_fsr_both_zoom": PlotSpec(
+            selection_name="between",
+            mass_field="mass_fsr_both",
+            plot_config=config.mass_plots["ZOOM"],
+            title="Control sample near Z peak [FSR recovery: both]",
+        ),
+        "pass_loose_raw_zoom": PlotSpec(
+            selection_name="pass_loose",
+            mass_field="mass_raw",
+            plot_config=config.mass_plots["ZOOM"],
+            title=f"Pass loose isolation ({loose.ptcone_max:.2f},{loose.etcone_max:.2f}) [raw mass]",
+        ),
+        "pass_loose_fsr_maxcone_zoom": PlotSpec(
+            selection_name="pass_loose",
+            mass_field="mass_fsr_maxcone",
+            plot_config=config.mass_plots["ZOOM"],
+            title="Pass loose isolation with toy FSR recovery [maxcone]",
+        ),
+        "pass_loose_fsr_both_zoom": PlotSpec(
+            selection_name="pass_loose",
+            mass_field="mass_fsr_both",
+            plot_config=config.mass_plots["ZOOM"],
+            title="Pass loose isolation with toy FSR recovery [both]",
+        ),
+    }
+
+
+def initialise_plot_accumulators(plot_specs: dict[str, PlotSpec], plot_labels: list[str]) -> dict[str, HistogramAccumulator]:
+    return {
+        plot_name: HistogramAccumulator.from_plot_config(spec.plot_config, plot_labels)
+        for plot_name, spec in plot_specs.items()
+    }
+
+
+def initialise_window_totals(config: FSRStudyConfig) -> dict[str, list[YieldSummary]]:
+    return {mass_field: [YieldSummary() for _ in config.windows] for mass_field in WINDOW_MASS_FIELDS}
+
+
+def build_scan_grid(config: FSRStudyConfig) -> ScanGrid:
+    if not config.scan.run:
+        return ScanGrid(points=(), pt_thresholds=(), et_thresholds=())
+
+    points = tuple(
+        generate_scan_points(
+            nominal_ptcone=config.nominal_iso.ptcone_max,
+            nominal_etcone=config.nominal_iso.etcone_max,
+            scan_mode=config.scan.mode,
+            ptcone_range=config.scan.ptcone_range,
+            ptcone_step=config.scan.ptcone_step,
+            etcone_range=config.scan.etcone_range,
+            etcone_step=config.scan.etcone_step,
+            local_box_ptcone_half_width=config.scan.local_box_ptcone_half_width,
+            local_box_etcone_half_width=config.scan.local_box_etcone_half_width,
         )
+    )
+    return ScanGrid(
+        points=points,
+        pt_thresholds=tuple(sorted({float(point[0]) for point in points})),
+        et_thresholds=tuple(sorted({float(point[1]) for point in points})),
+    )
+
+
+def initialise_sigma_accumulators(scan_grid: ScanGrid) -> dict[str, SigmaStudyAccumulator]:
+    return {
+        study_name: SigmaStudyAccumulator.create(spec, len(scan_grid.points))
+        for study_name, spec in SCAN_STUDIES.items()
+    }
+
+
+def _threshold_mask_cache(values: np.ndarray, thresholds: tuple[float, ...]) -> dict[float, np.ndarray]:
+    return {float(threshold): values < float(threshold) for threshold in thresholds}
+
+
+def accumulate_between_nominal_loose_histograms(
+    plot_specs: dict[str, PlotSpec],
+    plot_accumulators: dict[str, HistogramAccumulator],
+    sample: FSRSample,
+    chunk_view: FSRChunkView,
+    selection_masks: dict[str, np.ndarray],
+) -> None:
+    for plot_name, spec in plot_specs.items():
+        mask = selection_masks[spec.selection_name]
+        if not np.any(mask):
+            continue
+
+        values = getattr(chunk_view, spec.mass_field)[mask]
+        weights = chunk_view.weights[mask]
+        plot_accumulators[plot_name].fill(sample.plot_label, values, weights)
+
+
+def accumulate_between_mass_windows(
+    window_totals: dict[str, list[YieldSummary]],
+    sample: FSRSample,
+    chunk_view: FSRChunkView,
+    between_mask: np.ndarray,
+    config: FSRStudyConfig,
+) -> None:
+    if not np.any(between_mask):
+        return
+
+    selected_weights = chunk_view.weights[between_mask]
+    for mass_field, summaries in window_totals.items():
+        selected_mass = getattr(chunk_view, mass_field)[between_mask]
+        for index, (low_edge, high_edge) in enumerate(config.windows):
+            window_mask = (selected_mass > low_edge) & (selected_mass < high_edge)
+            summaries[index].add(sample, window_mask, selected_weights)
+
+
+def accumulate_sigma_scan(
+    sigma_accumulators: dict[str, SigmaStudyAccumulator],
+    scan_grid: ScanGrid,
+    sample: FSRSample,
+    chunk_view: FSRChunkView,
+    config: FSRStudyConfig,
+) -> None:
+    if not scan_grid.points:
+        return
+
+    pt_masks = _threshold_mask_cache(chunk_view.ptcone_metric, scan_grid.pt_thresholds)
+    raw_et_masks = _threshold_mask_cache(chunk_view.etcone_metric_raw, scan_grid.et_thresholds)
+    fsrsub_et_masks = _threshold_mask_cache(chunk_view.etcone_metric_fsrsub_maxcone, scan_grid.et_thresholds)
+
+    mass_low, mass_high = config.mass_window
+    mass_masks = {
+        study_name: (
+            (getattr(chunk_view, study.spec.mass_field) > mass_low)
+            & (getattr(chunk_view, study.spec.mass_field) < mass_high)
+        )
+        for study_name, study in sigma_accumulators.items()
+    }
+
+    for study_name, accumulator in sigma_accumulators.items():
+        et_masks = raw_et_masks
+        if accumulator.spec.etcone_metric_key == "etcone_metric_fsrsub_maxcone":
+            et_masks = fsrsub_et_masks
+
+        base_mass_mask = mass_masks[study_name]
+        for index, (ptcone_max, etcone_max) in enumerate(scan_grid.points):
+            selected_mask = base_mass_mask & pt_masks[float(ptcone_max)] & et_masks[float(etcone_max)]
+            if not np.any(selected_mask):
+                continue
+
+            if sample.yield_category == "data":
+                accumulator.data_counts[index] += float(np.count_nonzero(selected_mask))
+                continue
+
+            selected_weights = chunk_view.weights[selected_mask]
+            if sample.is_primary_signal:
+                accumulator.signal_weights[index] += float(np.sum(selected_weights))
+                continue
+
+            accumulator.background_weights[index] += float(np.sum(selected_weights))
+            accumulator.background_vars[index] += float(np.sum(np.square(selected_weights)))
+
+
+def build_mass_window_table(window_totals: dict[str, list[YieldSummary]], config: FSRStudyConfig) -> pd.DataFrame:
+    rows: list[dict] = []
+    for mass_field in WINDOW_MASS_FIELDS:
+        for (low_edge, high_edge), summary in zip(config.windows, window_totals[mass_field]):
+            rows.append(
+                {
+                    "mass_field": mass_field,
+                    "window": f"{low_edge:.0f}-{high_edge:.0f}",
+                    **summary.as_dict(),
+                }
+            )
     return pd.DataFrame(rows)
 
 
-def compute_sigma_simple(
+def finalize_sigma_scan(
     *,
-    plot_dict: dict,
-    channel_config: dict,
-    produced_event_count_fn,
-    mass_window: tuple[float, float],
-    ptcone_max: float,
-    etcone_max: float,
-    require_both: bool,
-    mass_field: str,
-    etcone_field: str = "lep_topoetcone20",
-    produced_sumw_cache: dict[str, float] | None = None,
-) -> dict:
-    selected = select_plot_dict(
-        plot_dict,
-        mass_window=mass_window,
-        ptcone_max=ptcone_max,
-        etcone_max=etcone_max,
-        require_both=require_both,
-        mass_field=mass_field,
-        etcone_field=etcone_field,
-    )
-    return compute_sigma_from_selected(
-        selected_plot_os=selected,
-        channel_config=channel_config,
-        produced_event_count_fn=produced_event_count_fn,
-        extra_bkg=0.0,
-        produced_sumw_cache=produced_sumw_cache,
-    )
-
-
-def run_sigma_scan(
-    *,
-    plot_dict: dict,
-    channel_config: dict,
-    produced_event_count_fn,
-    mass_window: tuple[float, float],
-    nominal_ptcone: float,
-    nominal_etcone: float,
-    require_both: bool,
+    sigma_accumulators: dict[str, SigmaStudyAccumulator],
+    scan_grid: ScanGrid,
+    config: FSRStudyConfig,
+    backend: dict,
 ) -> pd.DataFrame:
-    if not FSR_SETTINGS["SCAN"]["RUN"]:
+    if not scan_grid.points:
         return pd.DataFrame()
 
-    points = generate_scan_points(
-        nominal_ptcone=nominal_ptcone,
-        nominal_etcone=nominal_etcone,
-        scan_mode=str(FSR_SETTINGS["SCAN"]["MODE"]),
-        ptcone_range=tuple(FSR_SETTINGS["SCAN"]["PTCONE_RANGE"]),
-        ptcone_step=float(FSR_SETTINGS["SCAN"]["PTCONE_STEP"]),
-        etcone_range=tuple(FSR_SETTINGS["SCAN"]["ETCONE_RANGE"]),
-        etcone_step=float(FSR_SETTINGS["SCAN"]["ETCONE_STEP"]),
-        local_box_ptcone_half_width=float(FSR_SETTINGS["SCAN"]["LOCAL_BOX_PTCONE_HALF_WIDTH"]),
-        local_box_etcone_half_width=float(FSR_SETTINGS["SCAN"]["LOCAL_BOX_ETCONE_HALF_WIDTH"]),
+    primary_signal = CHANNELS[config.lepton]["primary_signal"]
+    produced_sumw_cache: dict[str, float] = {}
+    signal_total_weight = produced_sumw(
+        backend["produced_event_count"],
+        primary_signal,
+        LUMI_FB,
+        cache=produced_sumw_cache,
     )
 
-    studies = {
-        "raw": {"mass_field": "mass_raw", "etcone_field": "lep_topoetcone20"},
-        "masscorr_maxcone": {"mass_field": "mass_fsr_maxcone", "etcone_field": "lep_topoetcone20"},
-        "masscorr_both": {"mass_field": "mass_fsr_both", "etcone_field": "lep_topoetcone20"},
-        # This one is the toy 'FSR-aware isolation' variant.
-        "masscorr_etsub_maxcone": {
-            "mass_field": "mass_fsr_maxcone",
-            "etcone_field": "lep_topoetcone20_fsrsub_maxcone",
-        },
-    }
-
-    cache: dict[str, float] = {}
     rows: list[dict] = []
-    for ptcone_max, etcone_max in progress_iter(points, total=len(points), desc="fsr sigma scan", unit="pt"):
+    iterator = progress_iter(scan_grid.points, total=len(scan_grid.points), desc="fsr sigma finalize", unit="pt")
+    for index, (ptcone_max, etcone_max) in enumerate(iterator):
         row = {
             "ptcone_max": float(ptcone_max),
             "etcone_max": float(etcone_max),
-            "is_nominal": bool(np.isclose(ptcone_max, nominal_ptcone) and np.isclose(etcone_max, nominal_etcone)),
+            "is_nominal": bool(
+                np.isclose(ptcone_max, config.nominal_iso.ptcone_max)
+                and np.isclose(etcone_max, config.nominal_iso.etcone_max)
+            ),
         }
-        for study_name, study_cfg in studies.items():
+        for study_name, accumulator in sigma_accumulators.items():
             try:
-                result = compute_sigma_simple(
-                    plot_dict=plot_dict,
-                    channel_config=channel_config,
-                    produced_event_count_fn=produced_event_count_fn,
-                    mass_window=mass_window,
-                    ptcone_max=float(ptcone_max),
-                    etcone_max=float(etcone_max),
-                    require_both=require_both,
-                    mass_field=str(study_cfg["mass_field"]),
-                    etcone_field=str(study_cfg["etcone_field"]),
-                    produced_sumw_cache=cache,
+                result = compute_sigma_from_totals(
+                    primary_signal=primary_signal,
+                    n_selected=accumulator.data_counts[index],
+                    n_background_mc=accumulator.background_weights[index],
+                    n_background_var=accumulator.background_vars[index],
+                    signal_pass_weight=accumulator.signal_weights[index],
+                    signal_total_weight=signal_total_weight,
+                    extra_bkg=0.0,
                 )
                 row[f"sigma_pb_{study_name}"] = float(result["sigma_pb"])
                 row[f"epsilon_{study_name}"] = float(result["epsilon"])
                 row[f"n_sig_data_{study_name}"] = float(result["N_sig_data"])
+                row[f"n_selected_{study_name}"] = float(result["N_selected"])
+                row[f"n_bkg_mc_{study_name}"] = float(result["N_bkg_mc"])
+                row[f"dsigma_stat_pb_{study_name}"] = float(result["dsigma_stat_pb"])
+                row[f"dsigma_lumi_pb_{study_name}"] = float(result["dsigma_lumi_pb"])
             except Exception as exc:
                 row[f"sigma_pb_{study_name}"] = np.nan
                 row[f"epsilon_{study_name}"] = np.nan
                 row[f"n_sig_data_{study_name}"] = np.nan
+                row[f"n_selected_{study_name}"] = np.nan
+                row[f"n_bkg_mc_{study_name}"] = np.nan
+                row[f"dsigma_stat_pb_{study_name}"] = np.nan
+                row[f"dsigma_lumi_pb_{study_name}"] = np.nan
                 row[f"error_{study_name}"] = str(exc)
         rows.append(row)
 
     scan_df = pd.DataFrame(rows)
-    for study_name in studies:
+    for study_name in sigma_accumulators:
         sigma_col = f"sigma_pb_{study_name}"
         if sigma_col not in scan_df.columns:
             continue
@@ -703,18 +1022,15 @@ def run_sigma_scan(
     return scan_df
 
 
-def save_scan_outputs(scan_df: pd.DataFrame, output_dir: Path, nominal_ptcone: float, nominal_etcone: float) -> None:
+def save_scan_outputs(scan_df: pd.DataFrame, output_dir: Path, config: FSRStudyConfig) -> None:
     if scan_df.empty:
         return
+
+    output_dir.mkdir(parents=True, exist_ok=True)
     scan_df.to_csv(output_dir / "sigma_scan.csv", index=False)
     write_json(output_dir / "sigma_scan.json", scan_df.to_dict(orient="records"))
 
-    for study_name, title in [
-        ("raw", "sigma (raw mass, raw etcone)"),
-        ("masscorr_maxcone", "sigma (mass corrected: maxcone)"),
-        ("masscorr_both", "sigma (mass corrected: both)"),
-        ("masscorr_etsub_maxcone", "sigma (mass corrected + etcone-subtracted: maxcone)"),
-    ]:
+    for study_name, spec in SCAN_STUDIES.items():
         sigma_col = f"sigma_pb_{study_name}"
         if sigma_col not in scan_df.columns:
             continue
@@ -723,9 +1039,9 @@ def save_scan_outputs(scan_df: pd.DataFrame, output_dir: Path, nominal_ptcone: f
             output_dir / f"heatmap_{study_name}.png",
             value_column=sigma_col,
             value_label="sigma_pb [pb]",
-            title=title,
-            nominal_ptcone=nominal_ptcone,
-            nominal_etcone=nominal_etcone,
+            title=spec.title,
+            nominal_ptcone=config.nominal_iso.ptcone_max,
+            nominal_etcone=config.nominal_iso.etcone_max,
         )
         shift_col = f"sigma_frac_shift_{study_name}"
         if shift_col in scan_df.columns:
@@ -735,186 +1051,263 @@ def save_scan_outputs(scan_df: pd.DataFrame, output_dir: Path, nominal_ptcone: f
                 value_column=shift_col,
                 value_label="fractional |Δsigma|",
                 title=f"fractional |Δsigma| ({study_name})",
-                nominal_ptcone=nominal_ptcone,
-                nominal_etcone=nominal_etcone,
+                nominal_ptcone=config.nominal_iso.ptcone_max,
+                nominal_etcone=config.nominal_iso.etcone_max,
             )
+
+
+def save_stacked_mass_plot(
+    *,
+    accumulator: HistogramAccumulator,
+    plot_labels: list[str],
+    output_path: Path,
+    title: str,
+    logy: bool,
+) -> None:
+    centres = 0.5 * (accumulator.edges[:-1] + accumulator.edges[1:])
+    widths = np.diff(accumulator.edges)
+
+    figure, (main_axis, ratio_axis) = plt.subplots(
+        2,
+        1,
+        figsize=(11, 8),
+        sharex=True,
+        gridspec_kw={"height_ratios": [3, 1]},
+    )
+
+    palette = {
+        "Data": "black",
+        plot_labels[1]: "tab:blue",
+    }
+    fallback_colors = ["tab:olive", "tab:green", "tab:red", "tab:purple", "tab:cyan", "tab:orange"]
+
+    mc_labels = [label for label in plot_labels if label != "Data"]
+    for index, label in enumerate(mc_labels[1:], start=0):
+        palette.setdefault(label, fallback_colors[index % len(fallback_colors)])
+
+    stacked_total = np.zeros_like(centres)
+    stacked_var = np.zeros_like(centres)
+    for label in mc_labels:
+        counts = accumulator.counts_by_label[label]
+        main_axis.bar(
+            centres,
+            counts,
+            width=widths,
+            bottom=stacked_total,
+            align="center",
+            color=palette.get(label, "tab:gray"),
+            alpha=0.8,
+            edgecolor="black",
+            linewidth=0.3,
+            label=label,
+        )
+        stacked_total += counts
+        stacked_var += accumulator.variances_by_label[label]
+
+    mc_unc = np.sqrt(stacked_var)
+    if np.any(mc_unc > 0):
+        main_axis.stairs(
+            stacked_total + mc_unc,
+            accumulator.edges,
+            baseline=np.clip(stacked_total - mc_unc, 0.0, None),
+            fill=True,
+            color="gray",
+            alpha=0.18,
+            label="MC stat.",
+        )
+
+    data_counts = accumulator.counts_by_label["Data"]
+    data_err = np.sqrt(accumulator.variances_by_label["Data"])
+    main_axis.errorbar(
+        centres,
+        data_counts,
+        yerr=data_err,
+        fmt="ko",
+        markersize=4,
+        linewidth=1.0,
+        label="Data",
+    )
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratio = np.divide(data_counts, stacked_total, out=np.full_like(data_counts, np.nan), where=stacked_total > 0)
+        ratio_err = np.divide(data_err, stacked_total, out=np.full_like(data_err, np.nan), where=stacked_total > 0)
+        mc_frac_unc = np.divide(mc_unc, stacked_total, out=np.zeros_like(mc_unc), where=stacked_total > 0)
+
+    ratio_axis.axhline(1.0, color="black", linewidth=1.0, linestyle="--")
+    ratio_axis.errorbar(centres, ratio, yerr=ratio_err, fmt="ko", markersize=4, linewidth=1.0)
+    if np.any(mc_frac_unc > 0):
+        ratio_axis.stairs(
+            1.0 + mc_frac_unc,
+            accumulator.edges,
+            baseline=np.clip(1.0 - mc_frac_unc, 0.0, None),
+            fill=True,
+            color="gray",
+            alpha=0.18,
+        )
+
+    main_axis.set_ylabel("Events")
+    ratio_axis.set_ylabel("Data/MC")
+    ratio_axis.set_xlabel("mass [GeV]")
+    main_axis.set_title(title)
+
+    if logy:
+        main_axis.set_yscale("log")
+        positive_values = np.concatenate(
+            [
+                data_counts[data_counts > 0],
+                stacked_total[stacked_total > 0],
+            ]
+        )
+        ymin = 0.1
+        ymax = 10.0
+        if positive_values.size:
+            ymax = max(positive_values.max() * 10.0, 1.0)
+            ymin = max(min(positive_values.min() / 3.0, 0.1), 1e-3)
+        main_axis.set_ylim(ymin, ymax)
+
+    finite_ratio = ratio[np.isfinite(ratio)]
+    if finite_ratio.size:
+        finite_mask = np.isfinite(ratio) & np.isfinite(ratio_err)
+        upper = ratio[finite_mask] + ratio_err[finite_mask]
+        ratio_axis.set_ylim(0.0, max(2.0, float(np.nanmax(upper)) * 1.2 if upper.size else 2.0))
+    else:
+        ratio_axis.set_ylim(0.0, 2.0)
+
+    main_axis.grid(alpha=0.2)
+    ratio_axis.grid(alpha=0.2)
+
+    handles, labels = main_axis.get_legend_handles_labels()
+    if "Data" in labels:
+        data_index = labels.index("Data")
+        order = [data_index] + [index for index in range(len(labels)) if index != data_index]
+        handles = [handles[index] for index in order]
+        labels = [labels[index] for index in order]
+    main_axis.legend(handles, labels, frameon=False, fontsize=9)
+
+    figure.tight_layout()
+    save_fig(figure, output_path)
+
+
+def render_all_mass_plots(
+    plot_specs: dict[str, PlotSpec],
+    plot_accumulators: dict[str, HistogramAccumulator],
+    plot_labels: list[str],
+    plots_dir: Path,
+    config: FSRStudyConfig,
+) -> None:
+    if not config.save_plots:
+        return
+
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    for plot_name, spec in plot_specs.items():
+        save_stacked_mass_plot(
+            accumulator=plot_accumulators[plot_name],
+            plot_labels=plot_labels,
+            output_path=plots_dir / f"{plot_name}.png",
+            title=spec.title,
+            logy=spec.plot_config.logy,
+        )
+
+
+def nominal_sigma_summary_lines(scan_df: pd.DataFrame) -> list[str]:
+    if scan_df.empty:
+        return ["Sigma scan was disabled or produced no rows."]
+
+    nominal_rows = scan_df[scan_df["is_nominal"]]
+    if nominal_rows.empty:
+        return ["Sigma scan did not contain the nominal point."]
+
+    nominal_row = nominal_rows.iloc[0]
+    lines = ["Nominal sigma values:"]
+    for study_name in SCAN_STUDIES:
+        sigma_key = f"sigma_pb_{study_name}"
+        if sigma_key in nominal_row and np.isfinite(nominal_row[sigma_key]):
+            lines.append(f"- {study_name}: {float(nominal_row[sigma_key]):.6g} pb")
+    return lines
 
 
 def run() -> Path:
     ensure_script_directory()
     ensure_environment()
     backend = import_backend()
+    config = resolve_fsr_config()
 
-    lepton = str(FSR_SETTINGS["LEPTON"]).strip().lower()
-    if lepton != "mu":
-        raise ValueError("This focused FSR study is currently implemented for the muon channel only.")
-
-    run_root = (Path(__file__).resolve().parent / FSR_SETTINGS["OUTPUT_DIR"] / f"run_{now_stamp()}").resolve()
+    run_root = (Path(__file__).resolve().parent / config.output_dir / f"run_{now_stamp()}").resolve()
     run_root.mkdir(parents=True, exist_ok=True)
-    write_json(run_root / "fsr_settings.json", FSR_SETTINGS)
+    write_json(run_root / "fsr_settings.json", asdict(config))
 
-    nominal_ptcone = float(FSR_SETTINGS["NOMINAL_ISO"]["ptcone_max"])
-    nominal_etcone = float(FSR_SETTINGS["NOMINAL_ISO"]["etcone_max"])
-    loose_ptcone = float(FSR_SETTINGS["LOOSE_ISO"]["ptcone_max"])
-    loose_etcone = float(FSR_SETTINGS["LOOSE_ISO"]["etcone_max"])
-    mass_window = tuple(FSR_SETTINGS["MASS_WINDOW"])
-    require_both = bool(FSR_SETTINGS["REQUIRE_BOTH_ISO"])
+    root = ensure_fsr_tight_parquet(config, backend)
+    manifest = read_manifest(root)
+    if manifest is None:
+        raise RuntimeError(f"Missing manifest under {root}")
 
-    data_os = load_fsr_events(lepton, "OS", backend)
-    plot_os = enrich_plot_dict_with_fsr(build_plot_dict_for_fsr(data_os, lepton))
+    samples = resolve_fsr_samples(root, manifest, config.lepton)
+    if not samples:
+        raise RuntimeError(f"No FSR samples found under {root}")
 
-    # 1) Main control sample: fail nominal but pass loose.
-    between_raw = select_between_nominal_and_loose(
-        plot_os,
-        nominal_ptcone=nominal_ptcone,
-        nominal_etcone=nominal_etcone,
-        loose_ptcone=loose_ptcone,
-        loose_etcone=loose_etcone,
-        require_both=require_both,
-        mass_field="mass_raw",
-    )
+    plot_labels = ordered_plot_labels(config.lepton)
+    plot_specs = build_plot_specs(config)
+    plot_accumulators = initialise_plot_accumulators(plot_specs, plot_labels)
+    between_summary = YieldSummary()
+    window_totals = initialise_window_totals(config)
+    scan_grid = build_scan_grid(config)
+    sigma_accumulators = initialise_sigma_accumulators(scan_grid)
+
+    log_step(f"[{config.lepton}] Streaming FSR study chunks")
+    for sample, chunk in iterate_fsr_chunks(config, samples):
+        chunk_view = add_fsr_proxy_fields_chunk(chunk, config)
+        selection_masks = build_chunk_selection_masks(chunk_view, config)
+
+        between_mask = selection_masks["between"]
+        between_summary.add(sample, between_mask, chunk_view.weights)
+        accumulate_between_nominal_loose_histograms(
+            plot_specs,
+            plot_accumulators,
+            sample,
+            chunk_view,
+            selection_masks,
+        )
+        accumulate_between_mass_windows(window_totals, sample, chunk_view, between_mask, config)
+        accumulate_sigma_scan(sigma_accumulators, scan_grid, sample, chunk_view, config)
 
     plots_dir = run_root / "plots"
-    plots_dir.mkdir(parents=True, exist_ok=True)
+    render_all_mass_plots(plot_specs, plot_accumulators, plot_labels, plots_dir, config)
 
-    for plot_name, plot_dict, mass_field, cfg_key, title in [
-        (
-            "between_raw_full",
-            between_raw,
-            "mass_raw",
-            "FULL",
-            f"OS dimuon: fail nominal ({nominal_ptcone:.2f},{nominal_etcone:.2f}) but pass loose ({loose_ptcone:.2f},{loose_etcone:.2f}) [raw mass]",
-        ),
-        (
-            "between_fsr_maxcone_full",
-            between_raw,
-            "mass_fsr_maxcone",
-            "FULL",
-            f"Same control sample with toy FSR recovery [maxcone mode]",
-        ),
-        (
-            "between_fsr_both_full",
-            between_raw,
-            "mass_fsr_both",
-            "FULL",
-            f"Same control sample with toy FSR recovery [both-muons mode]",
-        ),
-        (
-            "between_raw_zoom",
-            between_raw,
-            "mass_raw",
-            "ZOOM",
-            f"Control sample near Z peak [raw mass]",
-        ),
-        (
-            "between_fsr_maxcone_zoom",
-            between_raw,
-            "mass_fsr_maxcone",
-            "ZOOM",
-            f"Control sample near Z peak [FSR recovery: maxcone]",
-        ),
-        (
-            "between_fsr_both_zoom",
-            between_raw,
-            "mass_fsr_both",
-            "ZOOM",
-            f"Control sample near Z peak [FSR recovery: both]",
-        ),
-    ]:
-        plot_cfg = FSR_SETTINGS["MASS_PLOT"][cfg_key]
-        save_stacked_mass_plot(
-            backend=backend,
-            plot_dict=plot_dict,
-            mass_field=mass_field,
-            output_path=plots_dir / f"{plot_name}.png",
-            title=title,
-            xmin=float(plot_cfg["xmin"]),
-            xmax=float(plot_cfg["xmax"]),
-            bins=int(plot_cfg["bins"]),
-            logy=bool(plot_cfg["logy"]),
-        )
-
-    # 2) Also inspect the full pass-loose region because that is closer to the sigma scan story.
-    pass_loose_raw = select_plot_dict(
-        plot_os,
-        ptcone_max=loose_ptcone,
-        etcone_max=loose_etcone,
-        require_both=require_both,
-        mass_field="mass_raw",
-    )
-    for plot_name, mass_field, cfg_key, title in [
-        (
-            "pass_loose_raw_zoom",
-            "mass_raw",
-            "ZOOM",
-            f"Pass loose isolation ({loose_ptcone:.2f},{loose_etcone:.2f}) [raw mass]",
-        ),
-        (
-            "pass_loose_fsr_maxcone_zoom",
-            "mass_fsr_maxcone",
-            "ZOOM",
-            f"Pass loose isolation with toy FSR recovery [maxcone]",
-        ),
-        (
-            "pass_loose_fsr_both_zoom",
-            "mass_fsr_both",
-            "ZOOM",
-            f"Pass loose isolation with toy FSR recovery [both]",
-        ),
-    ]:
-        plot_cfg = FSR_SETTINGS["MASS_PLOT"][cfg_key]
-        save_stacked_mass_plot(
-            backend=backend,
-            plot_dict=pass_loose_raw,
-            mass_field=mass_field,
-            output_path=plots_dir / f"{plot_name}.png",
-            title=title,
-            xmin=float(plot_cfg["xmin"]),
-            xmax=float(plot_cfg["xmax"]),
-            bins=int(plot_cfg["bins"]),
-            logy=bool(plot_cfg["logy"]),
-        )
-
-    # 3) Save compact window tables for quick interpretation.
-    windows_raw = build_mass_window_table(between_raw, "mass_raw")
-    windows_maxcone = build_mass_window_table(between_raw, "mass_fsr_maxcone")
-    windows_both = build_mass_window_table(between_raw, "mass_fsr_both")
-    window_table = pd.concat([windows_raw, windows_maxcone, windows_both], ignore_index=True)
+    window_table = build_mass_window_table(window_totals, config)
     window_table.to_csv(run_root / "between_mass_windows.csv", index=False)
 
-    # 4) Sigma scan (simple cut-and-count, no extra DD term) to see whether the toy correction
-    #    changes the isolation dependence pattern.
-    scan_df = run_sigma_scan(
-        plot_dict=plot_os,
-        channel_config=CHANNELS[lepton],
-        produced_event_count_fn=backend["produced_event_count"],
-        mass_window=mass_window,
-        nominal_ptcone=nominal_ptcone,
-        nominal_etcone=nominal_etcone,
-        require_both=require_both,
+    scan_df = finalize_sigma_scan(
+        sigma_accumulators=sigma_accumulators,
+        scan_grid=scan_grid,
+        config=config,
+        backend=backend,
     )
     scan_dir = run_root / "sigma_scan"
-    scan_dir.mkdir(parents=True, exist_ok=True)
-    save_scan_outputs(scan_df, scan_dir, nominal_ptcone, nominal_etcone)
+    save_scan_outputs(scan_df, scan_dir, config)
 
-    # 5) Summaries.
     summary_lines = [
         f"FSR toy study run directory: {run_root}",
+        f"FSR tight parquet root: {root}",
+        "",
+        "Processing model:",
+        "- streamed sample-by-sample and row-group-by-row-group from the dedicated FSR parquet",
+        "- no full all-sample OS event dictionary is materialised in memory",
+        "- stacked plots are built from accumulated histogram bins, not full event arrays",
         "",
         "Physics reminder:",
-        "- mass_fsr_maxcone: add topoetcone20 back only to the muon with larger topoetcone20,",
-        "  and only when raw dimuon mass is below APPLY_BELOW_MASS.",
-        "- masscorr_etsub_maxcone heatmap also subtracts that recovered proxy from the etcone",
-        "  used in the selection, so it is the most direct toy test of an FSR-aware isolation idea.",
+        "- mass_fsr_maxcone adds topoetcone20 back only to the muon with larger topoetcone20,",
+        "  and only when the raw dimuon mass is below APPLY_BELOW_MASS.",
+        "- masscorr_etsub_maxcone also subtracts that recovered proxy from the etcone",
+        "  used in the selection, so it is the direct toy test of an FSR-aware isolation idea.",
         "",
         "Nominal / loose isolation:",
-        f"- nominal: ptcone < {nominal_ptcone:.3f}, etcone < {nominal_etcone:.3f}",
-        f"- loose:   ptcone < {loose_ptcone:.3f}, etcone < {loose_etcone:.3f}",
+        f"- nominal: ptcone < {config.nominal_iso.ptcone_max:.3f}, etcone < {config.nominal_iso.etcone_max:.3f}",
+        f"- loose:   ptcone < {config.loose_iso.ptcone_max:.3f}, etcone < {config.loose_iso.etcone_max:.3f}",
         "",
-        "Control sample summaries (fail nominal, pass loose):",
-        f"raw mass yields:      {summarize_plot_dict(between_raw)}",
-        f"FSR maxcone yields:   {summarize_plot_dict(select_plot_dict(between_raw, mass_field='mass_fsr_maxcone'))}",
-        f"FSR both yields:      {summarize_plot_dict(select_plot_dict(between_raw, mass_field='mass_fsr_both'))}",
+        "Control sample summary (fail nominal, pass loose):",
+        f"{between_summary.as_dict()}",
+        "",
+        *nominal_sigma_summary_lines(scan_df),
         "",
         "Key files to inspect first:",
         f"- {plots_dir / 'between_raw_zoom.png'}",
@@ -923,14 +1316,6 @@ def run() -> Path:
         f"- {scan_dir / 'heatmap_raw.png'}",
         f"- {scan_dir / 'heatmap_masscorr_maxcone.png'}",
         f"- {scan_dir / 'heatmap_masscorr_etsub_maxcone.png'}",
-        "",
-        "Interpretation hints:",
-        "1. If the low-mass excess migrates upward toward the Z peak after the toy recovery,",
-        "   that supports the radiative / FSR-like explanation.",
-        "2. If the raw and corrected sigma heatmaps look similarly monotonic, then a mass-only",
-        "   recovery is not enough to explain the cut dependence.",
-        "3. If the masscorr_etsub_maxcone heatmap is visibly flatter than the raw one, that is",
-        "   a sign that the etcone-driven drift is plausibly coming from near-muon radiated energy.",
     ]
     write_text(run_root / "summary.txt", "\n".join(summary_lines))
 

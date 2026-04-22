@@ -7,6 +7,47 @@ from utils import produced_sumw, yield_data, yield_mc, yield_mc_var
 from visualisation import select_plotdict
 
 
+def compute_sigma_from_totals(
+    *,
+    primary_signal: str,
+    n_selected: float,
+    n_background_mc: float,
+    n_background_var: float,
+    signal_pass_weight: float,
+    signal_total_weight: float,
+    extra_bkg: float = 0.0,
+) -> dict:
+    n_background_total = float(n_background_mc) + float(extra_bkg)
+    n_signal_data = float(n_selected) - n_background_total
+
+    if signal_total_weight <= 0:
+        raise ZeroDivisionError(f"Produced sum of weights is non-positive for primary signal {primary_signal!r}")
+
+    efficiency = float(signal_pass_weight) / float(signal_total_weight)
+    if efficiency <= 0:
+        raise ZeroDivisionError(f"Efficiency is non-positive for primary signal {primary_signal!r}")
+
+    sigma_pb = n_signal_data / (efficiency * LUMI_PB)
+
+    d_n_data = math.sqrt(max(float(n_selected), 0.0))
+    d_n_background = math.sqrt(max(float(n_background_var), 0.0))
+    d_n_signal = math.sqrt(d_n_data**2 + d_n_background**2)
+    d_sigma_stat_pb = d_n_signal / (efficiency * LUMI_PB)
+
+    return {
+        "primary_signal": primary_signal,
+        "N_selected": float(n_selected),
+        "N_bkg_mc": float(n_background_mc),
+        "N_bkg_extra": float(extra_bkg),
+        "N_bkg_total": n_background_total,
+        "N_sig_data": n_signal_data,
+        "epsilon": efficiency,
+        "sigma_pb": sigma_pb,
+        "dsigma_stat_pb": d_sigma_stat_pb,
+        "dsigma_lumi_pb": abs(sigma_pb) * LUMI_REL_UNC,
+    }
+
+
 def compute_sigma_from_selected(
     selected_plot_os: dict,
     channel_config: dict,
@@ -27,9 +68,6 @@ def compute_sigma_from_selected(
         n_background_mc += yield_mc(events)
         n_background_var += yield_mc_var(events)
 
-    n_background_total = n_background_mc + float(extra_bkg)
-    n_signal_data = n_selected - n_background_total
-
     signal_pass_weight = yield_mc(selected_plot_os.get(primary_signal_label))
     signal_total_weight = produced_sumw(
         produced_event_count_fn,
@@ -37,32 +75,15 @@ def compute_sigma_from_selected(
         LUMI_FB,
         cache=produced_sumw_cache,
     )
-    if signal_total_weight <= 0:
-        raise ZeroDivisionError(f"Produced sum of weights is non-positive for primary signal {primary_signal!r}")
-
-    efficiency = signal_pass_weight / signal_total_weight
-    if efficiency <= 0:
-        raise ZeroDivisionError(f"Efficiency is non-positive for primary signal {primary_signal!r}")
-
-    sigma_pb = n_signal_data / (efficiency * LUMI_PB)
-
-    d_n_data = math.sqrt(max(n_selected, 0.0))
-    d_n_background = math.sqrt(max(n_background_var, 0.0))
-    d_n_signal = math.sqrt(d_n_data**2 + d_n_background**2)
-    d_sigma_stat_pb = d_n_signal / (efficiency * LUMI_PB)
-
-    return {
-        "primary_signal": primary_signal,
-        "N_selected": n_selected,
-        "N_bkg_mc": n_background_mc,
-        "N_bkg_extra": float(extra_bkg),
-        "N_bkg_total": n_background_total,
-        "N_sig_data": n_signal_data,
-        "epsilon": efficiency,
-        "sigma_pb": sigma_pb,
-        "dsigma_stat_pb": d_sigma_stat_pb,
-        "dsigma_lumi_pb": abs(sigma_pb) * LUMI_REL_UNC,
-    }
+    return compute_sigma_from_totals(
+        primary_signal=primary_signal,
+        n_selected=n_selected,
+        n_background_mc=n_background_mc,
+        n_background_var=n_background_var,
+        signal_pass_weight=signal_pass_weight,
+        signal_total_weight=signal_total_weight,
+        extra_bkg=extra_bkg,
+    )
 
 
 def compute_sigma(

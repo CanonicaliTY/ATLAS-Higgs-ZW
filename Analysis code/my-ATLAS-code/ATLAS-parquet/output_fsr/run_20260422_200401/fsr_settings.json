@@ -1,0 +1,82 @@
+{
+  "lepton": "mu",
+  "build_fraction": 1.0,
+  "read_fraction": 1.0,
+  "force_rebuild": false,
+  "root_dir": "../../tight-parquet-fsr",
+  "pt_min": 10.0,
+  "apply_medium_id": true,
+  "nominal_iso": {
+    "ptcone_max": 9.0,
+    "etcone_max": 6.0
+  },
+  "loose_iso": {
+    "ptcone_max": 15.0,
+    "etcone_max": 15.0
+  },
+  "require_both_iso": true,
+  "mass_window": [
+    66.0,
+    116.0
+  ],
+  "fsr_apply_below_mass": 80.0,
+  "fsr_etcone_scale": 1.0,
+  "fsr_modes": [
+    "maxcone",
+    "both"
+  ],
+  "scan": {
+    "run": true,
+    "mode": "local_box",
+    "ptcone_range": [
+      0.0,
+      10.0
+    ],
+    "ptcone_step": 1.0,
+    "etcone_range": [
+      0.0,
+      20.0
+    ],
+    "etcone_step": 1.0,
+    "local_box_ptcone_half_width": 2.0,
+    "local_box_etcone_half_width": 2.0
+  },
+  "output_dir": "output_fsr",
+  "save_plots": true,
+  "mass_plots": {
+    "FULL": {
+      "xmin": 0.0,
+      "xmax": 200.0,
+      "bins": 120,
+      "logy": true
+    },
+    "ZOOM": {
+      "xmin": 40.0,
+      "xmax": 120.0,
+      "bins": 80,
+      "logy": true
+    }
+  },
+  "windows": [
+    [
+      10.0,
+      40.0
+    ],
+    [
+      40.0,
+      66.0
+    ],
+    [
+      66.0,
+      80.0
+    ],
+    [
+      80.0,
+      100.0
+    ],
+    [
+      100.0,
+      116.0
+    ]
+  ]
+}

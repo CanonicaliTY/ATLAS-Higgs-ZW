@@ -1,0 +1,34 @@
+FSR toy study run directory: /Users/thomas/Chty/Softwares/VS Code Project/Jupyter Notebook/ATLAS-Higgs-ZW/Analysis code/my-ATLAS-code/ATLAS-parquet/output_fsr/run_20260422_200401
+FSR tight parquet root: /Users/thomas/Chty/Softwares/VS Code Project/Jupyter Notebook/ATLAS-Higgs-ZW/Analysis code/tight-parquet-fsr/mu_fsrstudy_pt10p0_mid_on
+
+Processing model:
+- streamed sample-by-sample and row-group-by-row-group from the dedicated FSR parquet
+- no full all-sample OS event dictionary is materialised in memory
+- stacked plots are built from accumulated histogram bins, not full event arrays
+
+Physics reminder:
+- mass_fsr_maxcone adds topoetcone20 back only to the muon with larger topoetcone20,
+  and only when the raw dimuon mass is below APPLY_BELOW_MASS.
+- masscorr_etsub_maxcone also subtracts that recovered proxy from the etcone
+  used in the selection, so it is the direct toy test of an FSR-aware isolation idea.
+
+Nominal / loose isolation:
+- nominal: ptcone < 9.000, etcone < 6.000
+- loose:   ptcone < 15.000, etcone < 15.000
+
+Control sample summary (fail nominal, pass loose):
+{'Data': 568770.0, 'Signal': 381210.4017446705, 'Background': 7772.699885468267, 'Data_minus_MC': 179786.89836986118}
+
+Nominal sigma values:
+- raw: 2256.32 pb
+- masscorr_maxcone: 2256.38 pb
+- masscorr_both: 2256.75 pb
+- masscorr_etsub_maxcone: 2270.65 pb
+
+Key files to inspect first:
+- /Users/thomas/Chty/Softwares/VS Code Project/Jupyter Notebook/ATLAS-Higgs-ZW/Analysis code/my-ATLAS-code/ATLAS-parquet/output_fsr/run_20260422_200401/plots/between_raw_zoom.png
+- /Users/thomas/Chty/Softwares/VS Code Project/Jupyter Notebook/ATLAS-Higgs-ZW/Analysis code/my-ATLAS-code/ATLAS-parquet/output_fsr/run_20260422_200401/plots/between_fsr_maxcone_zoom.png
+- /Users/thomas/Chty/Softwares/VS Code Project/Jupyter Notebook/ATLAS-Higgs-ZW/Analysis code/my-ATLAS-code/ATLAS-parquet/output_fsr/run_20260422_200401/plots/between_fsr_both_zoom.png
+- /Users/thomas/Chty/Softwares/VS Code Project/Jupyter Notebook/ATLAS-Higgs-ZW/Analysis code/my-ATLAS-code/ATLAS-parquet/output_fsr/run_20260422_200401/sigma_scan/heatmap_raw.png
+- /Users/thomas/Chty/Softwares/VS Code Project/Jupyter Notebook/ATLAS-Higgs-ZW/Analysis code/my-ATLAS-code/ATLAS-parquet/output_fsr/run_20260422_200401/sigma_scan/heatmap_masscorr_maxcone.png
+- /Users/thomas/Chty/Softwares/VS Code Project/Jupyter Notebook/ATLAS-Higgs-ZW/Analysis code/my-ATLAS-code/ATLAS-parquet/output_fsr/run_20260422_200401/sigma_scan/heatmap_masscorr_etsub_maxcone.png

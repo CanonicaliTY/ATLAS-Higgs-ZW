@@ -16,6 +16,7 @@ parquet/
 output-parquet/
 *.tar
 tight-parquet/
+tight-parquet-fsr/
 
 # ---- VS Code ----
 .vscode/
